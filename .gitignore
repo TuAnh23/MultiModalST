@@ -1,1 +1,9 @@
 *.pyc
+
+# Ignore Pycharm stuff
+.idea/*
+
+# Ignore data
+data/
+*.pt
+*.dict

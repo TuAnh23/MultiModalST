@@ -1,0 +1,6 @@
+pandas
+kaldiio
+python_speech_features
+torch
+hdf5
+apex

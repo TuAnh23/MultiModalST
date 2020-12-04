@@ -1,23 +1,11 @@
-# Transformer networks for Neural Machine Translation
+# Bachelor thesis: Zero-shot Speech Translation
 
-This is an implementation of the transformer for the paper
+<em> This repository is derived from the NMTGMinor project at 
+https://github.com/quanpn90/NMTGMinor </em> <br/><br/>
 
-["Attention is all you need"](https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf)
+Speech Translation (ST) is the task of translating speech audio in a source language into text in a target language. This repository implements and does experiments on 3 different approaches for ST:
+- Cascaded ST, including 2 steps: Automatic Speech Recognition and Machine Translation
+- End-to-end ST with end-to-end data
+- End-to-end ST with no end-to-end data using Zero-shot learning
 
-It also contains the implementation of the Speech Transformer as in
-
-["Very Deep Self-Attention Networks for End-to-End Speech Recognition"](https://arxiv.org/abs/1904.13377)
-
-----------------------------
-Requirement: (mostly recommended to use with Anaconda3 - Python3.7)
-
-PyTorch (1.0.1 or 1.1). The code base is normally kept up-to-date with the latest version of PyTorch. 
-
-hdf5 
-
-apex (the C++ and CUDA extensions are not required) https://github.com/nvidia/apex
-
-Recipe for the Speech model coming soon.
-
-----------------------------
-
+The Transformer architecture is used as the baseline for the implementation.

@@ -1,6 +1,9 @@
+numpy
 pandas
 kaldiio
-python_speech_features
+python_speech_features  # https://github.com/thomasZen/python_speech_features2
 torch
 hdf5
 apex
+librosa
+sentencepiece

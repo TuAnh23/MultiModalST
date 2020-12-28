@@ -7,3 +7,18 @@
 data/
 *.pt
 *.dict
+
+# Ignore packages installed from source
+python_speech_features2/
+
+# Ignore pretrained models
+models/*
+
+# Ignore log files
+*.log
+
+# Ignore experiment results
+experiments/*
+
+# Ignore notebook checkpoints
+notebooks/.ipynb_checkpoints/*

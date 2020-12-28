@@ -120,7 +120,7 @@ parser.add_argument('-dynamic_min_len_scale', type=float, default=0.0,
 def reportScore(name, score_total, words_total):
     print("%s AVG SCORE: %.4f, %s PPL: %.4f" % (
         name, score_total / (words_total + 1e-9),
-        name, math.exp(-score_total / (words_total + 1e-9))))
+        name, np.exp(-score_total / (words_total + 1e-9))))
 
 
 def addone(f):

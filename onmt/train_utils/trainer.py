@@ -8,6 +8,7 @@ import os
 import re
 import time
 import torch
+import numpy as np
 from apex import amp
 
 import onmt
@@ -669,7 +670,7 @@ class XETrainer(BaseTrainer):
                 if i == 0 or (i % opt.log_interval == -1 % opt.log_interval):
                     log_string = ("Epoch %2d, %5d/%5d; ; ppl: %6.2f ; " %
                                   (epoch, i + 1, len(data_iterator),
-                                   math.exp(report_loss / report_tgt_words)))
+                                   np.exp(report_loss / report_tgt_words)))
 
                     if opt.reconstruct:
                         rec_ppl = math.exp(report_rec_loss / report_src_words.item())

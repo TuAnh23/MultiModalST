@@ -79,6 +79,12 @@ def download(urls, xx_en_languages, en_xx_languages):
                       f"--cv-tsv {COVOST_DIR + '/' + 'en' + '/validated.tsv'}")
 
 
+def remove_empty_transcription(split_df):
+    new_df = split_df.loc[(split_df['sentence'] != "") & (split_df['sentence'] != '""') &
+                          (split_df['translation'] != "") & (split_df['translation'] != '""')]
+    return new_df
+
+
 def remove_empty_audio(split_df, audiodir):
     empty = []
     paths = split_df['path'].values
@@ -95,7 +101,7 @@ def remove_empty_audio(split_df, audiodir):
 def read_tsv_split(translation_dir, src_lang, tgt_lang, split, audiodir):
     split_df = pd.read_csv(translation_dir + f'/covost_v2.{src_lang}_{tgt_lang}.{split}.tsv', sep='\t', header=0,
                            encoding="utf-8", escapechar="\\", quoting=csv.QUOTE_NONE, na_filter=False)
-    return remove_empty_audio(split_df, audiodir)
+    return remove_empty_transcription(remove_empty_audio(split_df, audiodir))
 
 
 def prepare_X_to_en_data(src_lang_list):

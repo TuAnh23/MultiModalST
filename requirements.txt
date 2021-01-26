@@ -7,3 +7,4 @@ hdf5
 apex
 librosa
 sentencepiece
+sacrebleu

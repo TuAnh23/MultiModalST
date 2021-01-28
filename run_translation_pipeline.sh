@@ -70,7 +70,7 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   ENC_LAYER=32
   optim_str="-optim adam -update_method noam"
 elif [ "$SRC_FORMAT" = "text" ]; then
-  input_size=40
+  input_size=2048
   LAYER=12
   TRANSFORMER=stochastic_transformer
   OPTIM=Adam
@@ -84,16 +84,16 @@ python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -data_format raw \
         -save_model models/$SUB_DIR/model \
         -model $TRANSFORMER \
-        -batch_size_words 3584 \
+        -batch_size_words 500 \
         -batch_size_update 24568 \
-        -batch_size_sents 9999 \
+        -batch_size_sents 500 \
         -batch_size_multiplier 8 \
         -encoder_type $SRC_FORMAT \
         -checkpointing 0 \
         -input_size $input_size \
         -layers $LAYER \
         -encoder_layer $ENC_LAYER \
-        -death_rate 0.5 \
+        -death_rate 0.0 \
         -model_size $size \
         -inner_size $innersize \
         -n_heads 8 \

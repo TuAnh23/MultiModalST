@@ -377,7 +377,7 @@ def collect_transcription(info_df, audio_paths, output_file_prefix, transcriptio
     return f"{output_file_prefix}.txt"
 
 
-def subword_unit(model_path, raw_text_file, output_file, output_type=int):
+def subword_unit(model_path, raw_text_file, output_file, output_type=str):
     """
     Use a Sentence Piece model to do subword unit on a text file
     """

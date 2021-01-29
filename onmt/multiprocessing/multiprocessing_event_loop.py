@@ -66,7 +66,7 @@ class MultiprocessingEventLoop(object):
 
         # create signal handler that executes in the main process/thread and
         # handles errors from child processes
-        signal.signal(signal.SIGTERM, self._signal_handler)
+        signal.signal(signal.SIGUSR1, self._signal_handler)
 
     def _error_listener(self):
         """A thread that listens for errors in the child processes.

@@ -24,7 +24,7 @@ def decode_text(model_path, encoded_text_file, output_text_file):
     sp = spm.SentencePieceProcessor(model_file=model_path)
     with open(encoded_text_file, 'r', encoding="utf-8") as f:
         encoded_lines = f.readlines()
-    encoded_lines = [[int(i) for i in string.split()] for string in encoded_lines]
+    encoded_lines = [[i for i in string.split()] for string in encoded_lines]
     decoded_lines = [sp.decode(line) for line in encoded_lines]
     with open(output_text_file, 'w', encoding='utf-8') as f:
         for line in decoded_lines:

@@ -48,7 +48,8 @@ else
         -tgt_seq_length 512  \
         -concat $CONCAT \
         -src_type $SRC_FORMAT \
-        -save_data $DATA_DIR/${SUB_DIR}/data
+        -save_data $DATA_DIR/${SUB_DIR}/data \
+        -format bin
   fi
 fi
 # Train model
@@ -71,8 +72,8 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   optim_str="-optim adam -update_method noam"
 elif [ "$SRC_FORMAT" = "text" ]; then
   input_size=2048
-  LAYER=12
-  TRANSFORMER=stochastic_transformer
+  LAYER=4
+  TRANSFORMER=relative_transformer
   OPTIM=Adam
   LR=0.001
   size=512
@@ -81,16 +82,17 @@ elif [ "$SRC_FORMAT" = "text" ]; then
   optim_str="-optim adam"
 fi
 python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
-        -data_format raw \
+        -data_format bin \
         -save_model models/$SUB_DIR/model \
         -model $TRANSFORMER \
-        -batch_size_words 500 \
+        -batch_size_words 3584 \
         -batch_size_update 24568 \
-        -batch_size_sents 500 \
+        -batch_size_sents 9999 \
         -batch_size_multiplier 8 \
         -encoder_type $SRC_FORMAT \
         -checkpointing 0 \
         -input_size $input_size \
+        -concat $CONCAT \
         -layers $LAYER \
         -encoder_layer $ENC_LAYER \
         -death_rate 0.0 \
@@ -110,7 +112,7 @@ python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -tie_weights \
         -seed 8877 \
         -log_interval 1000 \
-        -gpus 0 |& tee experiments/${SUB_DIR}/train.log
+        -gpus 0 > experiments/${SUB_DIR}/train.log
 head -16 experiments/${SUB_DIR}/train.log > experiments/${SUB_DIR}/shortened_train.log
 grep "Validation perplexity" experiments/${SUB_DIR}/train.log >> experiments/${SUB_DIR}/shortened_train.log
 # Run best model on test set

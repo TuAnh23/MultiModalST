@@ -4,21 +4,23 @@ source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Setting variables
 SRC_LANG=en
-TGT_LANG=de
+TGT_LANG=en
 if [ "${SRC_LANG}" = "en" ]; then
   DATA_DIR=data/CoVoST2/preprocessed/full/en-X
 else
   DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
 fi
-SRC_FORMAT=text # Can be text or audio
+SRC_FORMAT=audio # Can be text or audio
 TGT_FORMAT=text
 TGT_EXTENSION=txt
 if [ "$SRC_FORMAT" = "audio" ]; then
   SRC_EXTENSION=scp
   CONCAT=4
+  FORMAT=raw
 elif [ "$SRC_FORMAT" = "text" ]; then
   SRC_EXTENSION=txt
   CONCAT=1
+  FORMAT=bin
 fi
 SUB_DIR=${SRC_FORMAT}_${SRC_LANG}_${TGT_FORMAT}_${TGT_LANG}
 # Preprocess data
@@ -38,7 +40,8 @@ else
         -asr \
         -src_type $SRC_FORMAT \
         -asr_format scp \
-        -save_data $DATA_DIR/${SUB_DIR}/data
+        -save_data $DATA_DIR/${SUB_DIR}/data \
+        -format $FORMAT
   elif [ "$SRC_FORMAT" = "text" ]; then
     python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_train.${SRC_EXTENSION}  \
         -train_tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_train.${TGT_EXTENSION}  \
@@ -49,7 +52,7 @@ else
         -concat $CONCAT \
         -src_type $SRC_FORMAT \
         -save_data $DATA_DIR/${SUB_DIR}/data \
-        -format bin
+        -format $FORMAT
   fi
 fi
 # Train model
@@ -70,6 +73,8 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   innersize=$((size*4))
   ENC_LAYER=32
   optim_str="-optim adam -update_method noam"
+  BATCH_SIZE_WORDS=2048
+  DEATH_RATE=0.5
 elif [ "$SRC_FORMAT" = "text" ]; then
   input_size=2048
   LAYER=4
@@ -80,12 +85,14 @@ elif [ "$SRC_FORMAT" = "text" ]; then
   innersize=$((size*4))
   ENC_LAYER=-1
   optim_str="-optim adam"
+  BATCH_SIZE_WORDS=3584
+  DEATH_RATE=0.0
 fi
 python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
-        -data_format bin \
+        -data_format $FORMAT \
         -save_model models/$SUB_DIR/model \
         -model $TRANSFORMER \
-        -batch_size_words 3584 \
+        -batch_size_words $BATCH_SIZE_WORDS \
         -batch_size_update 24568 \
         -batch_size_sents 9999 \
         -batch_size_multiplier 8 \
@@ -95,7 +102,7 @@ python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -concat $CONCAT \
         -layers $LAYER \
         -encoder_layer $ENC_LAYER \
-        -death_rate 0.0 \
+        -death_rate $DEATH_RATE \
         -model_size $size \
         -inner_size $innersize \
         -n_heads 8 \

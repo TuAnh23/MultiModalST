@@ -1,5 +1,6 @@
 #!/bin/bash
 # Setting environment
+# Change the below command to point to your own conda execution script
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Setting variables
@@ -72,7 +73,7 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   size=512
   innersize=$((size*4))
   ENC_LAYER=32
-  optim_str="-optim adam -update_method noam"
+  optim_str="-optim adam"
   BATCH_SIZE_WORDS=2048
   DEATH_RATE=0.5
 elif [ "$SRC_FORMAT" = "text" ]; then

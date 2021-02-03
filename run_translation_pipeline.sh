@@ -89,7 +89,7 @@ elif [ "$SRC_FORMAT" = "text" ]; then
   BATCH_SIZE_WORDS=3584
   DEATH_RATE=0.0
 fi
-python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
+python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -data_format $FORMAT \
         -save_model models/$SUB_DIR/model \
         -model $TRANSFORMER \
@@ -120,7 +120,7 @@ python train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -tie_weights \
         -seed 8877 \
         -log_interval 1000 \
-        -gpus 0 > experiments/${SUB_DIR}/train.log
+        -gpus 0 | tee experiments/${SUB_DIR}/train.log
 head -16 experiments/${SUB_DIR}/train.log > experiments/${SUB_DIR}/shortened_train.log
 grep "Validation perplexity" experiments/${SUB_DIR}/train.log >> experiments/${SUB_DIR}/shortened_train.log
 # Run best model on test set

@@ -58,12 +58,16 @@ else
 fi
 # Train model
 echo "Training model..."
-if [ ! -d models/${SUB_DIR} ]; then
-  mkdir models/${SUB_DIR}
+# Delete old models and log files if any and create new ones
+if [ -d models/${SUB_DIR} ]; then
+  rm -r models/${SUB_DIR}
 fi
-if [ ! -d experiments/${SUB_DIR} ]; then
-  mkdir experiments/${SUB_DIR}
+mkdir models/${SUB_DIR}
+if [ -d experiments/${SUB_DIR} ]; then
+  rm -r experiments/${SUB_DIR}
 fi
+mkdir experiments/${SUB_DIR}
+# Define some argument values
 if [ "$SRC_FORMAT" = "audio" ]; then
   input_size=$((80*$CONCAT))
   LAYER=12

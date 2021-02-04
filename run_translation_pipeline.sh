@@ -5,13 +5,13 @@ source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Setting variables
 SRC_LANG=en
-TGT_LANG=en
+TGT_LANG=de
 if [ "${SRC_LANG}" = "en" ]; then
   DATA_DIR=data/CoVoST2/preprocessed/full/en-X
 else
   DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
 fi
-SRC_FORMAT=audio # Can be text or audio
+SRC_FORMAT=text # Can be text or audio
 TGT_FORMAT=text
 TGT_EXTENSION=txt
 if [ "$SRC_FORMAT" = "audio" ]; then
@@ -67,7 +67,7 @@ fi
 if [ "$SRC_FORMAT" = "audio" ]; then
   input_size=$((80*$CONCAT))
   LAYER=12
-  TRANSFORMER=stochastic_transformer
+  TRANSFORMER=transformer
   OPTIM=Adam
   LR=0.001
   size=512
@@ -78,8 +78,8 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   DEATH_RATE=0.5
 elif [ "$SRC_FORMAT" = "text" ]; then
   input_size=2048
-  LAYER=4
-  TRANSFORMER=relative_transformer
+  LAYER=8
+  TRANSFORMER=transformer
   OPTIM=Adam
   LR=0.001
   size=512
@@ -120,6 +120,7 @@ python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -tie_weights \
         -seed 8877 \
         -log_interval 1000 \
+        -update_frequency -1 \
         -gpus 0 | tee experiments/${SUB_DIR}/train.log
 head -16 experiments/${SUB_DIR}/train.log > experiments/${SUB_DIR}/shortened_train.log
 grep "Validation perplexity" experiments/${SUB_DIR}/train.log >> experiments/${SUB_DIR}/shortened_train.log

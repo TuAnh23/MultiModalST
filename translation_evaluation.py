@@ -1,17 +1,20 @@
 import argparse
 import sentencepiece as spm
 import sacrebleu
+from vizseq.scorers.wer import WERScorer
 
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-save_data', required=True,
                     help='Path to the directory to save the results.')
-parser.add_argument('-encoded_output_translation', required=True,
-                    help='Path to the encoded output translation.')
+parser.add_argument('-encoded_output_text', required=True,
+                    help='Path to the encoded output text.')
 parser.add_argument('-text_encoder_decoder', required=True,
-                    help='Path to the model used to decode the translation output.')
-parser.add_argument('-reference_translation', required=True,
-                    help='Path to the reference translation.')
+                    help='Path to the model used to decode the text output.')
+parser.add_argument('-reference_text', required=True,
+                    help='Path to the reference text.')
+parser.add_argument('-task', required=True,
+                    help='Options are [asr|translation]')
 
 
 def decode_text(model_path, encoded_text_file, output_text_file):
@@ -34,16 +37,22 @@ def decode_text(model_path, encoded_text_file, output_text_file):
 
 def main():
     opt = parser.parse_args()
-    model_translation_file = f'{opt.save_data}/raw_text_translation.txt'
-    decode_text(model_path=opt.text_encoder_decoder, encoded_text_file=opt.encoded_output_translation,
-                output_text_file=model_translation_file)
-    with open(opt.reference_translation, 'r', encoding="utf-8") as f:
-        reference_translations = f.readlines()
-    with open(model_translation_file, 'r', encoding="utf-8") as f:
-        model_translations = f.readlines()
-    bleu = sacrebleu.corpus_bleu(model_translations, [reference_translations])
-    with open(f"{opt.save_data}/BLEU_score.txt", 'w', encoding="utf-8") as f:
-        f.write(f"BLEU score: {bleu.score}")
+    model_output_file = f'{opt.save_data}/raw_text_output.txt'
+    decode_text(model_path=opt.text_encoder_decoder, encoded_text_file=opt.encoded_output_text,
+                output_text_file=model_output_file)
+    with open(opt.reference_text, 'r', encoding="utf-8") as f:
+        reference_texts = f.readlines()
+    with open(model_output_file, 'r', encoding="utf-8") as f:
+        model_outputs = f.readlines()
+
+    if opt.task == "translation":
+        bleu = sacrebleu.corpus_bleu(model_outputs, [reference_texts])
+        with open(f"{opt.save_data}/BLEU_score.txt", 'w', encoding="utf-8") as f:
+            f.write(f"BLEU score: {bleu.score}")
+    elif opt.task == "asr":
+        scorer = WERScorer()
+        with open(f"{opt.save_data}/WER_score.txt", 'w', encoding="utf-8") as f:
+            f.write(f"WER score: {scorer.score(model_outputs, [reference_texts]).corpus_score}")
 
 
 if __name__ == "__main__":

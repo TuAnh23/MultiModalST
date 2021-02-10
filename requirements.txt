@@ -8,3 +8,4 @@ apex
 librosa
 sentencepiece
 sacrebleu
+vizseq

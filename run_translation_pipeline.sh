@@ -3,17 +3,19 @@
 # Change the below command to point to your own conda execution script
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
-# Setting variables
+# Manual variable setting
+CONT_FROM_CHECKPOINT=yes  # yes or no
 SRC_LANG=en
 TGT_LANG=de
+SRC_FORMAT=text # Can be text or audio
+# End of manual variable setting
+TGT_FORMAT=text
+TGT_EXTENSION=txt
 if [ "${SRC_LANG}" = "en" ]; then
   DATA_DIR=data/CoVoST2/preprocessed/full/en-X
 else
   DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
 fi
-SRC_FORMAT=text # Can be text or audio
-TGT_FORMAT=text
-TGT_EXTENSION=txt
 if [ "$SRC_FORMAT" = "audio" ]; then
   SRC_EXTENSION=scp
   CONCAT=4
@@ -56,17 +58,27 @@ else
         -format $FORMAT
   fi
 fi
+# Whether continue from a checkpoint
+MODEL_DIR=models/${SUB_DIR}
+EXPERIMENT_DIR=experiments/${SUB_DIR}
+if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
+  # Find best model to continue from
+  BEST_CHECKPONTED=${MODEL_DIR}/$(python finding_best_model.py -model_dir $MODEL_DIR)
+else
+  # Delete old models and log files if any and create new ones
+  if [ -d ${MODEL_DIR} ]; then
+    rm -r ${MODEL_DIR}
+  fi
+  mkdir ${MODEL_DIR}
+  if [ -d ${EXPERIMENT_DIR} ]; then
+    rm -r ${EXPERIMENT_DIR}
+  fi
+  mkdir ${EXPERIMENT_DIR}
+  # No checkpointed model to train from
+  BEST_CHECKPONTED=""
+fi
 # Train model
 echo "Training model..."
-# Delete old models and log files if any and create new ones
-if [ -d models/${SUB_DIR} ]; then
-  rm -r models/${SUB_DIR}
-fi
-mkdir models/${SUB_DIR}
-if [ -d experiments/${SUB_DIR} ]; then
-  rm -r experiments/${SUB_DIR}
-fi
-mkdir experiments/${SUB_DIR}
 # Define some argument values
 if [ "$SRC_FORMAT" = "audio" ]; then
   input_size=$((80*$CONCAT))
@@ -95,7 +107,8 @@ elif [ "$SRC_FORMAT" = "text" ]; then
 fi
 python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -data_format $FORMAT \
-        -save_model models/$SUB_DIR/model \
+        -save_model ${MODEL_DIR}/model \
+        -load_from $BEST_CHECKPONTED \
         -model $TRANSFORMER \
         -batch_size_words $BATCH_SIZE_WORDS \
         -batch_size_update 24568 \
@@ -125,11 +138,11 @@ python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -seed 8877 \
         -log_interval 1000 \
         -update_frequency -1 \
-        -gpus 0 | tee experiments/${SUB_DIR}/train.log
-head -16 experiments/${SUB_DIR}/train.log > experiments/${SUB_DIR}/shortened_train.log
-grep "Validation perplexity" experiments/${SUB_DIR}/train.log >> experiments/${SUB_DIR}/shortened_train.log
+        -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
+head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
+grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 # Run best model on test set
-BEST_MODEL_NAME=$(python finding_best_model.py -model_dir models/${SUB_DIR})
+BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
 echo "Running ${BEST_MODEL_NAME} on test set..."
 python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_test.${SRC_EXTENSION} \
@@ -137,13 +150,19 @@ python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
     -asr_format scp \
     -encoder_type $SRC_FORMAT \
     -tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_test.${TGT_EXTENSION}  \
-    -output experiments/${SUB_DIR}/encoded_translations.txt \
+    -output ${EXPERIMENT_DIR}/encoded_translations.txt \
     -batch_size 5 \
     -max_sent_length 1024 \
     -verbose \
     -gpu 0
 # Evaluate the model's translations
-python translation_evaluation.py -save_data experiments/${SUB_DIR} \
-    -encoded_output_translation experiments/${SUB_DIR}/encoded_translations.txt \
+if [ "${SRC_LANG}" = "${TGT_LANG}" ]; then
+  TASK=asr
+else
+  TASK=translation
+fi
+python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
+    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations.txt \
     -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}.model \
-    -reference_translation $DATA_DIR/${TGT_LANG}_raw_${TGT_FORMAT}_test.txt
+    -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_FORMAT}_test.txt \
+    -task $TASK

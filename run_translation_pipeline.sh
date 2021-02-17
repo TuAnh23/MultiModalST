@@ -61,9 +61,13 @@ fi
 # Whether continue from a checkpoint
 MODEL_DIR=models/${SUB_DIR}
 EXPERIMENT_DIR=experiments/${SUB_DIR}
+TOTAL_EPOCHS=64
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   # Find best model to continue from
   BEST_CHECKPONTED=${MODEL_DIR}/$(python finding_best_model.py -model_dir $MODEL_DIR)
+  # Set the number of remanining epochs to be run
+  CURRENT_EPOCH=`echo $BEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
+  N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
 else
   # Delete old models and log files if any and create new ones
   if [ -d ${MODEL_DIR} ]; then
@@ -76,6 +80,8 @@ else
   mkdir ${EXPERIMENT_DIR}
   # No checkpointed model to train from
   BEST_CHECKPONTED=""
+  # Set the number of epochs to be run
+  N_EPOCHS=$TOTAL_EPOCHS
 fi
 # Train model
 echo "Training model..."
@@ -129,7 +135,7 @@ python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -word_dropout 0.1 \
         -emb_dropout 0.2 \
         -label_smoothing 0.1 \
-        -epochs 64 \
+        -epochs $N_EPOCHS \
         $optim_str \
         -learning_rate $LR \
         -normalize_gradient \

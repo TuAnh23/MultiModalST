@@ -36,7 +36,6 @@ python translate.py -model ${ASR_MODEL} \
     -output $TRANSCRIPTION_PATH \
     -batch_size 5 \
     -max_sent_length 1024 \
-    -verbose \
     -gpu 0
 echo "Running ${MT_MODEL} on ${SRC_LANG} text on test set..."
 python translate.py -model ${MT_MODEL} \
@@ -48,7 +47,6 @@ python translate.py -model ${MT_MODEL} \
     -output ${EXPERIMENT_DIR}/encoded_translations.txt \
     -batch_size 5 \
     -max_sent_length 1024 \
-    -verbose \
     -gpu 0
 # Evaluate the cascaded translations
 python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \

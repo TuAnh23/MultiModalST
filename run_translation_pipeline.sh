@@ -153,7 +153,6 @@ python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
     -output ${EXPERIMENT_DIR}/encoded_translations.txt \
     -batch_size 5 \
     -max_sent_length 1024 \
-    -verbose \
     -gpu 0
 # Evaluate the model's translations
 if [ "${SRC_LANG}" = "${TGT_LANG}" ]; then

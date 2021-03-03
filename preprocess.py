@@ -589,6 +589,7 @@ def main():
         assert opt.asr, "ASR data format is required for this memory indexed format"
 
         torch.save(dicts, opt.save_data + '.dict.pt')
+        torch.save(opt.src_type, opt.save_data + '.type.pt')
 
         # binarize the training set first
         for set_ in ['tgt', 'src_lang', 'tgt_lang']:
@@ -657,6 +658,7 @@ def main():
 
         # save dicts in this format
         torch.save(dicts, opt.save_data + '.dict.pt')
+        torch.save(opt.src_type, opt.save_data + '.type.pt')
 
         # binarize the training set first
         for set_ in ['src', 'tgt', 'src_lang', 'tgt_lang']:

@@ -33,7 +33,6 @@ def varname(p):
 
 
 def generate_data_iterator(dataset, seed, num_workers=1, epoch=1., buffer_size=0):
-
     # check if dataset is a list:
     if isinstance(dataset, list):
         # this is a multidataset
@@ -61,6 +60,15 @@ class BaseTrainer(object):
 
         self.loss_function = loss_function
         self.start_time = 0
+
+    def add_additional_data(self, d, ratio):
+        self.additional_data_train = [data['train_data'] for data in d]
+        self.additional_data_valid = [data['valid_data'] for data in d]
+        if ratio == "-1":
+            self.additional_data_ratio = [1] * (len(self.additional_data_train) + 1)
+        else:
+            self.additional_data_ratio = [int(s) for s in ratio.split(";")]
+            assert (len(self.additional_data_ratio) == len(self.additional_data_train) + 1)
 
     def run(self, *args, **kwargs):
 
@@ -465,11 +473,21 @@ class XETrainer(BaseTrainer):
         #                              num_workers=opt.num_workers, epoch=epoch, buffer_size=opt.buffer_size)
         data_iterator = generate_data_iterator(dataset, seed=self.opt.seed, num_workers=opt.num_workers,
                                                epoch=epoch, buffer_size=opt.buffer_size)
+        if opt.additional_data != 'none':
+            additional_data_iterators = [generate_data_iterator(additional_dataset, seed=self.opt.seed,
+                                                                num_workers=opt.num_workers, epoch=epoch,
+                                                                buffer_size=opt.buffer_size)
+                                         for additional_dataset in self.additional_data_train]
 
+        # TODO: how to resume with additional data
         if resume:
             data_iterator.load_state_dict(itr_progress)
 
         epoch_iterator = data_iterator.next_epoch_itr(not streaming, pin_memory=opt.pin_memory)
+        if opt.additional_data != 'none':
+            additional_epoch_iterators = [additional_data_iterator.next_epoch_itr(not streaming,
+                                                                                  pin_memory=opt.pin_memory)
+                                          for additional_data_iterator in additional_data_iterators]
 
         total_tokens, total_loss, total_words = 0, 0, 0
         total_non_pads = 0
@@ -494,13 +512,47 @@ class XETrainer(BaseTrainer):
             streaming_state = None
 
         i = data_iterator.iterations_in_epoch if not isinstance(train_data, list) else epoch_iterator.n_yielded
+        if opt.additional_data != 'none':
+            additional_data_i = [additional_data_iterator.iterations_in_epoch if not isinstance(
+                additional_train_data, list) else additional_epoch_iterator.n_yielded
+                                 for additional_data_iterator, additional_train_data, additional_epoch_iterator
+                                 in
+                                 zip(additional_data_iterators, self.additional_data_train, additional_epoch_iterators)]
 
+        # This will stores the batches of additional data waiting to be run in between batches of data
+        waiting_batches = []
         while not data_iterator.end_of_epoch():
 
             curriculum = (epoch < opt.curriculum)
 
             # this batch generator is not very clean atm
-            batch = next(epoch_iterator)
+            if len(waiting_batches) == 0:
+                # Run the next batch of data
+                batch = next(epoch_iterator)
+                run_waiting_batch = False
+            else:
+                # Run the batches in waiting list if any
+                batch = waiting_batches.pop(0)
+                run_waiting_batch = True
+
+            if not (run_waiting_batch or data_iterator.end_of_epoch()):
+                # Add batches of additional data to the wait list
+                if opt.additional_data != 'none' and i % self.additional_data_ratio[0] == 0:
+                    for j in range(len(self.additional_data_train)):
+                        for k in range(0, self.additional_data_ratio[j + 1]):
+                            if additional_data_iterators[j].end_of_epoch():
+                                self.additional_data_train[j].shuffle()
+                                additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
+                                                                                      seed=self.opt.seed,
+                                                                                      num_workers=opt.num_workers,
+                                                                                      epoch=epoch,
+                                                                                      buffer_size=opt.buffer_size)
+                                additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(not
+                                                                                                            streaming,
+                                                                                                            pin_memory=opt.pin_memory)
+                            waiting_batches.append(next(additional_epoch_iterators[j]))
+                            additional_data_i[j] = additional_data_i[j] + 1
+
             if isinstance(batch, list) and self.n_gpus == 1:
                 batch = batch[0]
             batch = rewrap(batch)
@@ -708,7 +760,8 @@ class XETrainer(BaseTrainer):
                     report_ctc_loss = 0
                     start = time.time()
 
-                i = i + 1
+                if not run_waiting_batch:
+                    i = i + 1
 
         return total_loss / total_words
 
@@ -790,5 +843,3 @@ class XETrainer(BaseTrainer):
             self.save(epoch, valid_ppl)
             itr_progress = None
             resume = False
-
-

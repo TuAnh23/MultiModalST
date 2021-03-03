@@ -22,7 +22,8 @@ torch_version = float(torch.__version__[:3])
 
 class MixedEncoder(nn.Module):
 
-    def __init(self, text_encoder, audio_encoder):
+    def __init__(self, text_encoder, audio_encoder):
+        super(MixedEncoder, self).__init__()
         self.text_encoder = text_encoder
         self.audio_encoder = audio_encoder
 
@@ -260,7 +261,7 @@ class TransformerDecoder(nn.Module):
         self.word_dropout = opt.word_dropout
         self.attn_dropout = opt.attn_dropout
         self.emb_dropout = opt.emb_dropout
-        self.encoder_type = opt.encoder_type
+        # self.encoder_type = opt.encoder_type we will decide encoder_type based on the src dimension instead
         self.ignore_source = ignore_source
         self.encoder_cnn_downsampling = opt.cnn_downsampling
         self.variational_dropout = opt.variational_dropout
@@ -373,6 +374,17 @@ class TransformerDecoder(nn.Module):
         """
 
         """ Embedding: batch_size x len_tgt x d_model """
+
+        # Decide on the encoder_type based on the number of dimensions of src sequence
+        # audio has 2 dimensions
+        # text has 1 dimension
+        if len(src.shape) - 1 == 1:
+            self.encoder_type = 'text'
+        elif len(src.shape) - 1 == 2:
+            self.encoder_type = 'audio'
+        else:
+            raise RuntimeError(f'src sequence dimension is {len(src.shape) - 1}, while it should be 1 for text and 2 '
+                               f'for audio.')
 
         emb = self.process_embedding(input, tgt_lang)
 
@@ -548,7 +560,9 @@ class Transformer(NMTModel):
         self.switchout = self.decoder.switchout
         self.tgt_vocab_size = self.decoder.word_lut.weight.size(0)
 
-        if self.encoder.input_type == 'text':
+        if type(self.encoder).__name__ == 'MixedEncoder':
+            self.src_vocab_size = self.encoder.text_encoder.word_lut.weight.size(0)
+        elif self.encoder.input_type == 'text':
             self.src_vocab_size = self.encoder.word_lut.weight.size(0)
         else:
             self.src_vocab_size = 0

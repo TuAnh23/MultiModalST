@@ -7,6 +7,15 @@ def make_parser(parser):
                         help='Path to the *-train.pt file from preprocess.py')
     parser.add_argument('-data_format', required=False, default='raw',
                         help='Default data format: raw')
+    parser.add_argument('-additional_data', required=False, default='none',
+                        help='Path to the *-train.pt files from preprocess.py for addtional data; sepeated by '
+                             'semi-colon')
+    parser.add_argument('-additional_data_format', required=False, default='bin',
+                        help='Corresponding additional data formats sepeated by semi-colon. Default data format: raw')
+    parser.add_argument('-data_ratio', required=False, default='-1',
+                        help='ratio how to use the data and additiona data  e.g. 1;2;2; default 1;1;1;1;... For '
+                             'example, 1;2 means after every 1 batch of data, there will be 2 batches of '
+                             'first additional_data')
 
     parser.add_argument('-multi_dataset', action='store_true',
                         help='Reading multiple datasets (sharing the same dictionary)')

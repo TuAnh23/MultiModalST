@@ -7,58 +7,58 @@ conda activate BachelorThesisST
 CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
-SRC_FORMAT=mix # Can be text or audio or mix
+SRC_MODALITY=mix # Can be text or audio or mix
 # End of manual variable setting
-TGT_FORMAT=text
+TGT_MODALITY=text
 TGT_EXTENSION=txt
 if [ "${SRC_LANG}" = "en" ]; then
   DATA_DIR=data/CoVoST2/preprocessed/super_dummy/en-X
 else
   DATA_DIR=data/CoVoST2/preprocessed/super_dummy/${SRC_LANG}-${TGT_LANG}
 fi
-if [ "$SRC_FORMAT" = "audio" ]; then
+if [ "$SRC_MODALITY" = "audio" ]; then
   SRC_EXTENSION=scp
   CONCAT=4
   FORMAT=scp
-elif [ "$SRC_FORMAT" = "text" ]; then
+elif [ "$SRC_MODALITY" = "text" ]; then
   SRC_EXTENSION=txt
   CONCAT=1
   FORMAT=mmem
-elif [ "$SRC_FORMAT" = "mix" ]; then
+elif [ "$SRC_MODALITY" = "mix" ]; then
   CONCAT=4
 fi
-SUB_DIR=${SRC_FORMAT}_${SRC_LANG}_${TGT_FORMAT}_${TGT_LANG}
+SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}
 # Preprocess data
 if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
   echo "${SUB_DIR} already preprocessed"
 else
   echo "Preprocessing ${SUB_DIR} data"
   mkdir ${DATA_DIR}/${SUB_DIR}
-  if [ "$SRC_FORMAT" = "audio" ]; then
-    python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_train.${SRC_EXTENSION}  \
-        -train_tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_train.${TGT_EXTENSION}  \
-        -valid_src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_val.${SRC_EXTENSION}  \
-        -valid_tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_val.${TGT_EXTENSION}  \
+  if [ "$SRC_MODALITY" = "audio" ]; then
+    python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_train.${SRC_EXTENSION}  \
+        -train_tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_train.${TGT_EXTENSION}  \
+        -valid_src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_val.${SRC_EXTENSION}  \
+        -valid_tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_val.${TGT_EXTENSION}  \
         -src_seq_length 1024  \
         -tgt_seq_length 512  \
         -concat $CONCAT \
         -asr \
-        -src_type $SRC_FORMAT \
+        -src_type $SRC_MODALITY \
         -asr_format scp \
         -save_data $DATA_DIR/${SUB_DIR}/data \
         -format $FORMAT
-  elif [ "$SRC_FORMAT" = "text" ]; then
-    python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_train.${SRC_EXTENSION}  \
-        -train_tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_train.${TGT_EXTENSION}  \
-        -valid_src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_val.${SRC_EXTENSION}  \
-        -valid_tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_val.${TGT_EXTENSION}  \
+  elif [ "$SRC_MODALITY" = "text" ]; then
+    python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_train.${SRC_EXTENSION}  \
+        -train_tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_train.${TGT_EXTENSION}  \
+        -valid_src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_val.${SRC_EXTENSION}  \
+        -valid_tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_val.${TGT_EXTENSION}  \
         -src_seq_length 512  \
         -tgt_seq_length 512  \
         -concat $CONCAT \
-        -src_type $SRC_FORMAT \
+        -src_type $SRC_MODALITY \
         -save_data $DATA_DIR/${SUB_DIR}/data \
         -format $FORMAT
-  elif [ "$SRC_FORMAT" = "mix" ]; then
+  elif [ "$SRC_MODALITY" = "mix" ]; then
     # Create a vocabulary for all text sources
     python vocab_generator.py -filenames $DATA_DIR/${SRC_LANG}_text_train.txt \
         -out_file $DATA_DIR/${SUB_DIR}/src_vocab
@@ -123,7 +123,7 @@ fi
 # Train model
 echo "Training model..."
 # Define some argument values
-if [ "$SRC_FORMAT" = "audio" ]; then
+if [ "$SRC_MODALITY" = "audio" ]; then
   input_size=$((80*$CONCAT))
   LAYER=12
   TRANSFORMER=transformer
@@ -135,7 +135,7 @@ if [ "$SRC_FORMAT" = "audio" ]; then
   optim_str="-optim adam"
   BATCH_SIZE_WORDS=2048
   DEATH_RATE=0.5
-elif [ "$SRC_FORMAT" = "text" ]; then
+elif [ "$SRC_MODALITY" = "text" ]; then
   input_size=2048
   LAYER=8
   TRANSFORMER=transformer
@@ -147,7 +147,7 @@ elif [ "$SRC_FORMAT" = "text" ]; then
   optim_str="-optim adam"
   BATCH_SIZE_WORDS=3584
   DEATH_RATE=0.0
-elif [ "$SRC_FORMAT" = "mix" ]; then
+elif [ "$SRC_MODALITY" = "mix" ]; then
   input_size=$((80*$CONCAT))
   LAYER=12
   TRANSFORMER=transformer
@@ -160,7 +160,7 @@ elif [ "$SRC_FORMAT" = "mix" ]; then
   BATCH_SIZE_WORDS=500
   DEATH_RATE=0.5
 fi
-if [ "$SRC_FORMAT" = "mix" ]; then
+if [ "$SRC_MODALITY" = "mix" ]; then
     python -u train.py -data ${DATA_DIR}/${SUB_DIR}/asr_data \
         -data_format scp \
         -additional_data ${DATA_DIR}/${SUB_DIR}/mt_data \
@@ -171,7 +171,7 @@ if [ "$SRC_FORMAT" = "mix" ]; then
         -batch_size_update 24568 \
         -batch_size_sents 500 \
         -batch_size_multiplier 8 \
-        -encoder_type $SRC_FORMAT \
+        -encoder_type $SRC_MODALITY \
         -checkpointing 0 \
         -input_size $input_size \
         -concat $CONCAT \
@@ -196,7 +196,7 @@ if [ "$SRC_FORMAT" = "mix" ]; then
         -log_interval 1000 \
         -update_frequency -1 \
         -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
-elif [ "$SRC_FORMAT" = "text" ]; then
+elif [ "$SRC_MODALITY" = "text" ]; then
   python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
           -data_format $FORMAT \
           -save_model ${MODEL_DIR}/model \
@@ -205,7 +205,7 @@ elif [ "$SRC_FORMAT" = "text" ]; then
           -batch_size_update 24568 \
           -batch_size_sents 9999 \
           -batch_size_multiplier 8 \
-          -encoder_type $SRC_FORMAT \
+          -encoder_type $SRC_MODALITY \
           -checkpointing 0 \
           -input_size $input_size \
           -concat $CONCAT \
@@ -237,11 +237,11 @@ grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/sh
 #BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
 #echo "Running ${BEST_MODEL_NAME} on test set..."
 #python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
-#    -src $DATA_DIR/${SRC_LANG}_${SRC_FORMAT}_test.${SRC_EXTENSION} \
+#    -src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_test.${SRC_EXTENSION} \
 #    -concat $CONCAT \
 #    -asr_format scp \
-#    -encoder_type $SRC_FORMAT \
-#    -tgt $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}_test.${TGT_EXTENSION}  \
+#    -encoder_type $SRC_MODALITY \
+#    -tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_test.${TGT_EXTENSION}  \
 #    -output ${EXPERIMENT_DIR}/encoded_translations.txt \
 #    -batch_size 5 \
 #    -max_sent_length 1024 \
@@ -254,6 +254,6 @@ grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/sh
 #fi
 #python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
 #    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations.txt \
-#    -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_FORMAT}.model \
-#    -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_FORMAT}_test.txt \
+#    -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}.model \
+#    -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_MODALITY}_test.txt \
 #    -task $TASK

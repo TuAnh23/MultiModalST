@@ -389,6 +389,7 @@ class XETrainer(BaseTrainer):
             print(" * Deleting old save file %s ...." % save_file)
             os.remove(save_file)
 
+    # TODO: Add additional_data to validation set and eval on that
     def eval(self, data):
         total_loss = 0
         total_words = 0

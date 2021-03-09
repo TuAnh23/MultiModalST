@@ -63,6 +63,10 @@ parser.add_argument('-valid_src_lang', default="src",
 parser.add_argument('-valid_tgt_lang', default="tgt",
                     help="Language(s) of the target sequences.")
 
+parser.add_argument('-all_langs', default=None,
+                    help="Language(s) of source and target sequences of all datasets to be used when training. This "
+                         "is needed when we use additional_data when training.")
+
 parser.add_argument('-save_data', required=True,
                     help="Output file for the prepared data")
 
@@ -309,8 +313,15 @@ def main():
     # construct set of languages from the training languages
     src_langs = opt.train_src_lang.split("|")
     tgt_langs = opt.train_tgt_lang.split("|")
-    langs = (src_langs + tgt_langs)
-    langs = list(set(langs))
+    if opt.all_langs is not None:
+        langs = opt.all_langs.split("|")
+        langs = list(set(langs))
+        for lang in (src_langs + tgt_langs):
+            # All languages in src_langs and tgt_langs must be in langs
+            assert lang in langs
+    else:
+        langs = (src_langs + tgt_langs)
+        langs = list(set(langs))
 
     dicts['langs'] = dict()
 
@@ -393,9 +404,9 @@ def main():
                                                                      num_workers=opt.num_threads)
 
             n_samples = len(src_data)
-            if n_input_files == 1:
-                # For single-file cases we only need to have 1 language per file
-                # which will be broadcasted
+            if n_input_files == 1 and opt.all_langs is None:
+                # For single-file cases (and no future additional data in training) we only need to have 1 language
+                # per file which will be broadcasted
                 src_lang_data = [torch.Tensor([dicts['langs'][src_lang]])]
                 tgt_lang_data = [torch.Tensor([dicts['langs'][tgt_lang]])]
             else:
@@ -445,9 +456,9 @@ def main():
                                                                      output_format=opt.format)
 
             n_samples = len(src_data)
-            if n_input_files == 1:
-                # For single-file cases we only need to have 1 language per file
-                # which will be broadcasted
+            if n_input_files == 1 and opt.all_langs is None:
+                # For single-file cases (and no future additional data in training) we only need to have 1 language
+                # per file which will be broadcasted
                 src_lang_data = [torch.Tensor([dicts['langs'][src_lang]])]
                 tgt_lang_data = [torch.Tensor([dicts['langs'][tgt_lang]])]
             else:
@@ -495,9 +506,9 @@ def main():
                                                                              verbose=opt.verbose)
 
             n_samples = len(src_data)
-            if n_input_files == 1:
-                # For single-file cases we only need to have 1 language per file
-                # which will be broadcasted
+            if n_input_files == 1 and opt.all_langs is None:
+                # For single-file cases (and no future additional data in training) we only need to have 1 language
+                # per file which will be broadcasted
                 src_lang_data = [torch.Tensor([dicts['langs'][src_lang]])]
                 tgt_lang_data = [torch.Tensor([dicts['langs'][tgt_lang]])]
             else:
@@ -545,9 +556,9 @@ def main():
                                                                              verbose=opt.verbose)
 
             n_samples = len(src_data)
-            if n_input_files == 1:
-                # For single-file cases we only need to have 1 language per file
-                # which will be broadcasted
+            if n_input_files == 1 and opt.all_langs is None:
+                # For single-file cases (and no future additional data in training) we only need to have 1 language
+                # per file which will be broadcasted
                 src_lang_data = [torch.Tensor([dicts['langs'][src_lang]])]
                 tgt_lang_data = [torch.Tensor([dicts['langs'][tgt_lang]])]
             else:

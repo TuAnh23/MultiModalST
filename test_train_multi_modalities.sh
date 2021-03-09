@@ -71,6 +71,11 @@ else
         -train_tgt $DATA_DIR/${SRC_LANG}_text_train.txt  \
         -valid_src $DATA_DIR/${SRC_LANG}_audio_val.scp  \
         -valid_tgt $DATA_DIR/${SRC_LANG}_text_val.txt  \
+        -train_src_lang ${SRC_LANG} \
+        -train_tgt_lang ${SRC_LANG} \
+        -valid_src_lang ${SRC_LANG} \
+        -valid_tgt_lang ${SRC_LANG} \
+        -all_langs "${SRC_LANG}|${TGT_LANG}" \
         -src_seq_length 1024  \
         -tgt_seq_length 512  \
         -concat 4 \
@@ -85,6 +90,11 @@ else
         -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
         -valid_src $DATA_DIR/${SRC_LANG}_text_val.txt  \
         -valid_tgt $DATA_DIR/${TGT_LANG}_text_val.txt  \
+        -train_src_lang ${SRC_LANG} \
+        -train_tgt_lang ${TGT_LANG} \
+        -valid_src_lang ${SRC_LANG} \
+        -valid_tgt_lang ${TGT_LANG} \
+        -all_langs "${SRC_LANG}|${TGT_LANG}" \
         -src_seq_length 512  \
         -tgt_seq_length 512  \
         -concat 1 \
@@ -165,6 +175,8 @@ if [ "$SRC_MODALITY" = "mix" ]; then
         -data_format scp \
         -additional_data ${DATA_DIR}/${SUB_DIR}/mt_data \
         -additional_data_format mmem \
+        -use_language_embedding \
+        -language_embedding_type concat \
         -save_model ${MODEL_DIR}/model \
         -model $TRANSFORMER \
         -batch_size_words $BATCH_SIZE_WORDS \

@@ -67,7 +67,7 @@ def main():
             for (additional_data_file, additional_data_format) in zip(additional_data_files, additional_data_formats):
                 dicts_additional, train_data_additional, valid_data_additional = load_data(
                     data_path=additional_data_file,
-                    data_format=opt.additional_data_format)
+                    data_format=additional_data_format)
 
                 # The additional data must have the same tgt vocab as the data
                 assert dicts['tgt'].size() == dicts_additional['tgt'].size()
@@ -523,6 +523,7 @@ def load_data(data_path, data_format):
         print("Done after %s" % elapse)
 
     else:
+        print('Data format:', data_format)
         raise NotImplementedError
     print(' * number of sentences in training data: %d' % train_data.size())
     print(' * number of sentences in validation data: %d' % valid_data.size())

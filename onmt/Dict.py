@@ -29,7 +29,7 @@ class Dict(object):
 
     def loadFile(self, filename):
         "Load entries from a file."
-        for line in open(filename):
+        for line in open(filename, encoding="utf-8"):
 
             # NOTE: a vocab entry might be a space
             # so we want to find the right most space index in the line
@@ -45,7 +45,7 @@ class Dict(object):
 
     def writeFile(self, filename):
         "Write entries to a file."
-        with open(filename, 'w') as file:
+        with open(filename, 'w', encoding="utf-8") as file:
             for i in range(self.size()):
                 label = self.idxToLabel[i]
                 file.write('%s %d\n' % (label, i))

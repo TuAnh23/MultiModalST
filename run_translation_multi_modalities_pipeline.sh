@@ -212,27 +212,29 @@ else
 fi
 head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
-## Run best model on test set
-#BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
-#echo "Running ${BEST_MODEL_NAME} on test set..."
-#python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
-#    -src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_test.${SRC_EXTENSION} \
-#    -concat $CONCAT \
-#    -asr_format scp \
-#    -encoder_type $SRC_MODALITY \
-#    -tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_test.${TGT_EXTENSION}  \
-#    -output ${EXPERIMENT_DIR}/encoded_translations.txt \
-#    -batch_size 5 \
-#    -max_sent_length 1024 \
-#    -gpu 0
-## Evaluate the model's translations
-#if [ "${SRC_LANG}" = "${TGT_LANG}" ]; then
-#  TASK=asr
-#else
-#  TASK=translation
-#fi
-#python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
-#    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations.txt \
-#    -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}.model \
-#    -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_MODALITY}_test.txt \
-#    -task $TASK
+# Run best model on test set
+BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
+echo "Running ${BEST_MODEL_NAME} on test set..."
+python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
+    -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
+    -src_lang $SRC_LANG \
+    -tgt_lang $TGT_LANG \
+    -concat $CONCAT \
+    -asr_format scp \
+    -encoder_type $SRC_MODALITY \
+    -tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_test.${TGT_EXTENSION}  \
+    -output ${EXPERIMENT_DIR}/encoded_translations.txt \
+    -batch_size 5 \
+    -max_sent_length 1024 \
+    -gpu 0
+# Evaluate the model's translations
+if [ "${SRC_LANG}" = "${TGT_LANG}" ]; then
+  TASK=asr
+else
+  TASK=translation
+fi
+python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
+    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations.txt \
+    -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}.model \
+    -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_MODALITY}_test.txt \
+    -task $TASK

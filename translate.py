@@ -156,7 +156,7 @@ def main():
     if opt.output == "stdout":
         outF = sys.stdout
     else:
-        outF = open(opt.output, 'w')
+        outF = open(opt.output, 'w', encoding="utf-8")
 
     pred_score_total, pred_words_total, gold_score_total, gold_words_total = 0, 0, 0, 0
 
@@ -165,7 +165,7 @@ def main():
 
     count = 0
 
-    tgtF = open(opt.tgt) if opt.tgt else None
+    tgtF = open(opt.tgt, encoding="utf-8") if opt.tgt else None
     #
     # if opt.dump_beam != "":
     #     import json

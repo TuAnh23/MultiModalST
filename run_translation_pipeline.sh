@@ -23,7 +23,7 @@ if [ "$SRC_MODALITY" = "audio" ]; then
 elif [ "$SRC_MODALITY" = "text" ]; then
   SRC_EXTENSION=txt
   CONCAT=1
-  FORMAT=bin
+  FORMAT=mmem
 fi
 SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}
 # Preprocess data
@@ -111,10 +111,45 @@ elif [ "$SRC_MODALITY" = "text" ]; then
   BATCH_SIZE_WORDS=3584
   DEATH_RATE=0.0
 fi
-python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
+if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
+  python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
+          -data_format $FORMAT \
+          -save_model ${MODEL_DIR}/model \
+          -load_from $BEST_CHECKPONTED \
+          -model $TRANSFORMER \
+          -batch_size_words $BATCH_SIZE_WORDS \
+          -batch_size_update 24568 \
+          -batch_size_sents 9999 \
+          -batch_size_multiplier 8 \
+          -encoder_type $SRC_MODALITY \
+          -checkpointing 0 \
+          -input_size $input_size \
+          -concat $CONCAT \
+          -layers $LAYER \
+          -encoder_layer $ENC_LAYER \
+          -death_rate $DEATH_RATE \
+          -model_size $size \
+          -inner_size $innersize \
+          -n_heads 8 \
+          -dropout 0.2 \
+          -attn_dropout 0.2 \
+          -word_dropout 0.1 \
+          -emb_dropout 0.2 \
+          -label_smoothing 0.1 \
+          -epochs $N_EPOCHS \
+          $optim_str \
+          -learning_rate $LR \
+          -normalize_gradient \
+          -warmup_steps 8000 \
+          -tie_weights \
+          -seed 8877 \
+          -log_interval 1000 \
+          -update_frequency -1 \
+          -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
+else
+  python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -data_format $FORMAT \
         -save_model ${MODEL_DIR}/model \
-        -load_from $BEST_CHECKPONTED \
         -model $TRANSFORMER \
         -batch_size_words $BATCH_SIZE_WORDS \
         -batch_size_update 24568 \
@@ -145,6 +180,7 @@ python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -log_interval 1000 \
         -update_frequency -1 \
         -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
+fi
 head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 # Run best model on test set

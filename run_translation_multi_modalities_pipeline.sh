@@ -4,7 +4,7 @@
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Manual variable setting
-CONT_FROM_CHECKPOINT=yes  # yes or no
+CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 # End of manual variable setting
@@ -12,9 +12,9 @@ SRC_MODALITY=mix
 TGT_MODALITY=text
 TGT_EXTENSION=txt
 if [ "${SRC_LANG}" = "en" ]; then
-  DATA_DIR=data/CoVoST2/preprocessed/super_dummy/en-X
+  DATA_DIR=data/CoVoST2/preprocessed/full/en-X
 else
-  DATA_DIR=data/CoVoST2/preprocessed/super_dummy/${SRC_LANG}-${TGT_LANG}
+  DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
 fi
 CONCAT=4
 SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}
@@ -129,7 +129,7 @@ size=512
 innersize=$((size*4))
 ENC_LAYER=32
 optim_str="-optim adam"
-BATCH_SIZE_WORDS=500
+BATCH_SIZE_WORDS=2048
 DEATH_RATE=0.5
 # Run training process
 if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then

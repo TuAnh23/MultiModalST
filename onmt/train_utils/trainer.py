@@ -353,8 +353,7 @@ class XETrainer(BaseTrainer):
                 self.valid_data.src_align_right = True
                 self.valid_data.tgt_align_right = False
 
-    def save(self, epoch, valid_ppl, itr=None):
-
+    def save(self, epoch, valid_ppl, itr=None, additional_itrs=None):
         opt = self.opt
         model = self.model
         dicts = self.dicts
@@ -367,6 +366,10 @@ class XETrainer(BaseTrainer):
         else:
             itr_state_dict = None
 
+        if opt.additional_data != 'none' and additional_itrs:
+            additional_itr_state_dicts = [additional_itr.state_dict() for additional_itr in additional_itrs]
+        else:
+            additional_itr_state_dicts = None
         #  drop a checkpoint
         checkpoint = {
             'model': model_state_dict,
@@ -374,6 +377,7 @@ class XETrainer(BaseTrainer):
             'opt': opt,
             'epoch': epoch,
             'itr': itr_state_dict,
+            'additional_itrs': additional_itr_state_dicts,
             'optim': optim_state_dict,
             'amp': amp.state_dict()
         }
@@ -453,7 +457,7 @@ class XETrainer(BaseTrainer):
         self.loss_function.train()
         return total_loss / total_words
 
-    def train_epoch(self, epoch, resume=False, itr_progress=None):
+    def train_epoch(self, epoch, resume=False, itr_progress=None, additional_itrs_progresses=None):
 
         global rec_ppl
         opt = self.opt
@@ -480,9 +484,16 @@ class XETrainer(BaseTrainer):
                                                                 buffer_size=opt.buffer_size)
                                          for additional_dataset in self.additional_data_train]
 
-        # TODO: how to resume with additional data
         if resume:
             data_iterator.load_state_dict(itr_progress)
+            if opt.additional_data != 'none':
+                if additional_itrs_progresses is not None:
+                    assert len(additional_data_iterators) == len(additional_itrs_progresses)
+                    for i in range(0, len(additional_data_iterators)):
+                        additional_data_iterators[i].load_state_dict(additional_itrs_progresses[i])
+                else:
+                    for i in range(0, len(additional_data_iterators)):
+                        additional_data_iterators[i].load_state_dict(None)
 
         epoch_iterator = data_iterator.next_epoch_itr(not streaming, pin_memory=opt.pin_memory)
         if opt.additional_data != 'none':
@@ -699,8 +710,10 @@ class XETrainer(BaseTrainer):
                         print('Validation perplexity: %g' % valid_ppl)
 
                         ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
-
-                        self.save(ep, valid_ppl, itr=data_iterator)
+                        if opt.additional_data != 'none':
+                            self.save(ep, valid_ppl, itr=data_iterator, additional_itrs=additional_data_iterators)
+                        else:
+                            self.save(ep, valid_ppl, itr=data_iterator)
 
                 num_words = tgt_size
                 report_loss += loss_data
@@ -776,7 +789,6 @@ class XETrainer(BaseTrainer):
         if checkpoint is not None:
             self.model.load_state_dict(checkpoint['model'])
             prec_opt = checkpoint['opt'] if 'opt' in checkpoint else None
-
             if not opt.reset_optim:
                 print("* Loading optimizer states ... ")
                 self.optim.load_state_dict(checkpoint['optim'])
@@ -793,12 +805,18 @@ class XETrainer(BaseTrainer):
                 else:
                     itr_progress = None
 
+                if opt.additional_data != 'none' and 'additional_itrs' in checkpoint:
+                    additional_itrs_progresses = checkpoint['additional_itrs']
+                else:
+                    additional_itrs_progresses = None
+
                 resume = True
                 start_epoch = checkpoint['epoch'] if 'epoch' in checkpoint else 1
                 if start_epoch is None:
                     start_epoch = 1
             else:
                 itr_progress = None
+                additional_itrs_progresses = None
                 resume = False
                 start_epoch = 1
 
@@ -807,6 +825,7 @@ class XETrainer(BaseTrainer):
             del checkpoint
         else:
             itr_progress = None
+            additional_itrs_progresses = None
             print('Initializing model parameters')
             init_model_parameters(model, opt)
             resume = False
@@ -827,12 +846,15 @@ class XETrainer(BaseTrainer):
             print('Validation perplexity: %g' % valid_ppl)
 
         self.start_time = time.time()
-
         for epoch in range(start_epoch, start_epoch + opt.epochs):
             print('')
 
             #  (1) train for one epoch on the training set
-            train_loss = self.train_epoch(epoch, resume=resume, itr_progress=itr_progress)
+            if opt.additional_data != 'none':
+                train_loss = self.train_epoch(epoch, resume=resume, itr_progress=itr_progress,
+                                              additional_itrs_progresses=additional_itrs_progresses)
+            else:
+                train_loss = self.train_epoch(epoch, resume=resume, itr_progress=itr_progress)
             train_ppl = math.exp(min(train_loss, 100))
             print('Train perplexity: %g' % train_ppl)
 
@@ -840,7 +862,7 @@ class XETrainer(BaseTrainer):
             valid_loss = self.eval(self.valid_data)
             valid_ppl = math.exp(min(valid_loss, 100))
             print('Validation perplexity: %g' % valid_ppl)
-
             self.save(epoch, valid_ppl)
             itr_progress = None
+            additional_itrs_progresses = None
             resume = False

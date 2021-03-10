@@ -58,9 +58,6 @@ def main():
     if not opt.multi_dataset:
         # Load the data
         dicts, train_data, valid_data = load_data(data_path=opt.data, data_format=opt.data_format)
-        print('----------------------------------------------------')
-        print(dicts)
-        print('----------------------------------------------------')
         # Load the additional data
         if opt.additional_data != 'none':
             additional_data = []
@@ -221,7 +218,6 @@ def main():
         train_data = train_sets
         valid_data = valid_sets
 
-    # TODO: see how to handle checkpoint with multiple data format (maybe no need to do anything. try a run)
     if opt.load_from:
         checkpoint = torch.load(opt.load_from, map_location=lambda storage, loc: storage)
         print("* Loading dictionaries from the checkpoint")

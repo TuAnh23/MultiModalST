@@ -4,7 +4,7 @@
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Manual variable setting
-CONT_FROM_CHECKPOINT=no  # yes or no
+CONT_FROM_CHECKPOINT=yes  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 SRC_MODALITY=mix # Can be text or audio or mix
@@ -172,6 +172,7 @@ elif [ "$SRC_MODALITY" = "mix" ]; then
 fi
 if [ "$SRC_MODALITY" = "mix" ]; then
     python -u train.py -data ${DATA_DIR}/${SUB_DIR}/asr_data \
+        -load_from $BEST_CHECKPONTED \
         -data_format scp \
         -additional_data ${DATA_DIR}/${SUB_DIR}/mt_data \
         -additional_data_format mmem \
@@ -210,6 +211,7 @@ if [ "$SRC_MODALITY" = "mix" ]; then
         -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
 elif [ "$SRC_MODALITY" = "text" ]; then
   python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
+          -load_from $BEST_CHECKPONTED \
           -data_format $FORMAT \
           -save_model ${MODEL_DIR}/model \
           -model $TRANSFORMER \

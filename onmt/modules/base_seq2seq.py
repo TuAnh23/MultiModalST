@@ -85,8 +85,14 @@ class NMTModel(nn.Module):
             if 'positional_encoder' in param_name:
                 return False
             if 'time_transformer' in param_name:
-                if self.encoder is not None and self.encoder.time == 'positional_encoding':
-                    return False
+                if self.encoder is not None:
+                    if type(self.encoder).__name__ == 'MixedEncoder':
+                        if self.encoder.text_encoder.time == 'positional_encoding' or \
+                                self.encoder.audio_encoder.time == 'positional_encoding':
+                            return False
+                    else:
+                        if self.encoder.time == 'positional_encoding':
+                            return False
             if param_name == 'decoder.mask':
                 return False
             if param_name == 'decoder.r_w_bias' or param_name == 'decoder.r_r_bias':

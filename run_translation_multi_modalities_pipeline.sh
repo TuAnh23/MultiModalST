@@ -182,7 +182,7 @@ else
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
     -batch_size_update 24568 \
-    -batch_size_sents 500 \
+    -batch_size_sents 9999 \
     -batch_size_multiplier 8 \
     -encoder_type $SRC_MODALITY \
     -checkpointing 0 \

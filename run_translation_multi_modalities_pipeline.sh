@@ -130,6 +130,7 @@ innersize=$((size*4))
 ENC_LAYER=32
 optim_str="-optim adam"
 BATCH_SIZE_WORDS=2048
+BATCH_SIZE_SENT=9999
 DEATH_RATE=0.5
 # Run training process
 if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
@@ -144,7 +145,7 @@ if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
     -batch_size_update 24568 \
-    -batch_size_sents 500 \
+    -batch_size_sents $BATCH_SIZE_SENT \
     -batch_size_multiplier 8 \
     -encoder_type $SRC_MODALITY \
     -checkpointing 0 \
@@ -182,7 +183,7 @@ else
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
     -batch_size_update 24568 \
-    -batch_size_sents 9999 \
+    -batch_size_sents $BATCH_SIZE_SENT \
     -batch_size_multiplier 8 \
     -encoder_type $SRC_MODALITY \
     -checkpointing 0 \
@@ -215,13 +216,14 @@ grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/sh
 # Run best model on test set
 BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
 echo "Running ${BEST_MODEL_NAME} on test set..."
-python translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
+# Here we set -encoder_type=audio since we're only insterested in Speech Translation task
+python -u translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
     -src_lang $SRC_LANG \
     -tgt_lang $TGT_LANG \
     -concat $CONCAT \
     -asr_format scp \
-    -encoder_type $SRC_MODALITY \
+    -encoder_type audio \
     -tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_test.${TGT_EXTENSION}  \
     -output ${EXPERIMENT_DIR}/encoded_translations.txt \
     -batch_size 5 \

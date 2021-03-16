@@ -534,7 +534,6 @@ class XETrainer(BaseTrainer):
         # This will stores the batches of additional data waiting to be run in between batches of data
         waiting_batches = []
         while not data_iterator.end_of_epoch():
-
             curriculum = (epoch < opt.curriculum)
 
             # this batch generator is not very clean atm
@@ -553,14 +552,13 @@ class XETrainer(BaseTrainer):
                     for j in range(len(self.additional_data_train)):
                         for k in range(0, self.additional_data_ratio[j + 1]):
                             if additional_data_iterators[j].end_of_epoch():
-                                self.additional_data_train[j].shuffle()
+                                # self.additional_data_train[j].shuffle()
                                 additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
                                                                                       seed=self.opt.seed,
                                                                                       num_workers=opt.num_workers,
                                                                                       epoch=epoch,
                                                                                       buffer_size=opt.buffer_size)
-                                additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(not
-                                                                                                            streaming,
+                                additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(shuffle=True,
                                                                                                             pin_memory=opt.pin_memory)
                             waiting_batches.append(next(additional_epoch_iterators[j]))
                             additional_data_i[j] = additional_data_i[j] + 1
@@ -568,10 +566,8 @@ class XETrainer(BaseTrainer):
             if isinstance(batch, list) and self.n_gpus == 1:
                 batch = batch[0]
             batch = rewrap(batch)
-
             if self.cuda:
                 batch.cuda(fp16=self.opt.fp16 and not self.opt.fp16_mixed)
-
             # if opt.streaming:
             #     if train_data.is_new_stream():
             #         streaming_state = self.model.init_stream()

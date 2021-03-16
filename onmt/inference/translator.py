@@ -53,6 +53,7 @@ class Translator(object):
                     self.src_dict = checkpoint['dicts']['src']
                 else:
                     self._type = "audio"
+                self._type = self.opt.encoder_type
                 self.tgt_dict = checkpoint['dicts']['tgt']
 
                 if "langs" in checkpoint["dicts"]:

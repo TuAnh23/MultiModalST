@@ -393,7 +393,6 @@ class XETrainer(BaseTrainer):
             print(" * Deleting old save file %s ...." % save_file)
             os.remove(save_file)
 
-    # TODO: Add additional_data to validation set and eval on that
     def eval(self, data):
         total_loss = 0
         total_words = 0
@@ -705,6 +704,13 @@ class XETrainer(BaseTrainer):
                         valid_ppl = math.exp(min(valid_loss, 100))
                         print('Validation perplexity: %g' % valid_ppl)
 
+                        if opt.additional_data != 'none':
+                            for i_additional in range(0, len(self.additional_data_valid)):
+                                additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                                additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                                print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                                           additional_valid_ppl))
+
                         ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
                         if opt.additional_data != 'none':
                             self.save(ep, valid_ppl, itr=data_iterator, additional_itrs=additional_data_iterators)
@@ -729,7 +735,7 @@ class XETrainer(BaseTrainer):
                     report_rev_loss += rev_loss_data
                     report_mirror_loss += mirror_loss_data
 
-                if i == 0 or (i % opt.log_interval == -1 % opt.log_interval):
+                if (i == 0 or (i % opt.log_interval == -1 % opt.log_interval)) and (not run_waiting_batch):
                     log_string = ("Epoch %2d, %5d/%5d; ; ppl: %6.2f ; " %
                                   (epoch, i + 1, len(data_iterator),
                                    np.exp(report_loss / report_tgt_words)))
@@ -840,6 +846,12 @@ class XETrainer(BaseTrainer):
             valid_loss = self.eval(self.valid_data)
             valid_ppl = math.exp(min(valid_loss, 100))
             print('Validation perplexity: %g' % valid_ppl)
+            if opt.additional_data != 'none':
+                for i_additional in range(0, len(self.additional_data_valid)):
+                    additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                    additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                    print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                               additional_valid_ppl))
 
         self.start_time = time.time()
         for epoch in range(start_epoch, start_epoch + opt.epochs):
@@ -858,6 +870,12 @@ class XETrainer(BaseTrainer):
             valid_loss = self.eval(self.valid_data)
             valid_ppl = math.exp(min(valid_loss, 100))
             print('Validation perplexity: %g' % valid_ppl)
+            if opt.additional_data != 'none':
+                for i_additional in range(0, len(self.additional_data_valid)):
+                    additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                    additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                    print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                               additional_valid_ppl))
             self.save(epoch, valid_ppl)
             itr_progress = None
             additional_itrs_progresses = None

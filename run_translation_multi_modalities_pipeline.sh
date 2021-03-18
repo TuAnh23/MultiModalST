@@ -7,14 +7,16 @@ conda activate BachelorThesisST
 CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
+SUB_DATA_NAME=dummy
+EXPERIMENT_NAME=${SUB_DATA_NAME}
 # End of manual variable setting
 SRC_MODALITY=mix
 TGT_MODALITY=text
 TGT_EXTENSION=txt
 if [ "${SRC_LANG}" = "en" ]; then
-  DATA_DIR=data/CoVoST2/preprocessed/full/en-X
+  DATA_DIR=data/CoVoST2/preprocessed/${SUB_DATA_NAME}/en-X
 else
-  DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
+  DATA_DIR=data/CoVoST2/preprocessed/${SUB_DATA_NAME}/${SRC_LANG}-${TGT_LANG}
 fi
 CONCAT=4
 SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}
@@ -89,8 +91,8 @@ else
       -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
 fi
 # Whether continue from a checkpoint
-MODEL_DIR=models/${SUB_DIR}
-EXPERIMENT_DIR=experiments/${SUB_DIR}
+MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}
+EXPERIMENT_DIR=experiments/${SUB_DIR}_${EXPERIMENT_NAME}
 TOTAL_EPOCHS=64
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   # Find best model to continue from
@@ -133,7 +135,7 @@ BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
 DEATH_RATE=0.5
 # Run training process
-if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
+if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     python -u train.py -data $DATA \
     -load_from $BEST_CHECKPONTED \
     -data_format $DATA_FORMAT \

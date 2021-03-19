@@ -9,6 +9,7 @@ SRC_LANG=en
 TGT_LANG=de
 SUB_DATA_NAME=dummy
 EXPERIMENT_NAME=${SUB_DATA_NAME}
+FINAL_MODEL="latest" # if best, evaluate the best model. if latest, evaluate the latest model
 # End of manual variable setting
 SRC_MODALITY=mix
 TGT_MODALITY=text
@@ -95,10 +96,10 @@ MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}
 EXPERIMENT_DIR=experiments/${SUB_DIR}_${EXPERIMENT_NAME}
 TOTAL_EPOCHS=64
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
-  # Find best model to continue from
-  BEST_CHECKPONTED=${MODEL_DIR}/$(python finding_best_model.py -model_dir $MODEL_DIR)
+  # Find latest model to continue from
+  LATEST_CHECKPONTED=${MODEL_DIR}/$(python finding_latest_model.py -model_dir $MODEL_DIR)
   # Set the number of remanining epochs to be run
-  CURRENT_EPOCH=`echo $BEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
+  CURRENT_EPOCH=`echo $LATEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
   N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
 else
   # Delete old models and log files if any and create new ones
@@ -111,7 +112,7 @@ else
   fi
   mkdir ${EXPERIMENT_DIR}
   # No checkpointed model to train from
-  BEST_CHECKPONTED=""
+  LATEST_CHECKPONTED=""
   # Set the number of epochs to be run
   N_EPOCHS=$TOTAL_EPOCHS
 fi
@@ -137,7 +138,7 @@ DEATH_RATE=0.5
 # Run training process
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     python -u train.py -data $DATA \
-    -load_from $BEST_CHECKPONTED \
+    -load_from $LATEST_CHECKPONTED \
     -data_format $DATA_FORMAT \
     -additional_data $ADDITIONAL_DATA \
     -additional_data_format $ADDITIONAL_DATA_FORMAT \
@@ -214,12 +215,17 @@ else
     -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
 fi
 head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
-grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
-# Run best model on test set
-BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
-echo "Running ${BEST_MODEL_NAME} on test set..."
+grep -e "Train perplexity" -e "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
+if [ "${FINAL_MODEL}" = "best" ]; then
+  # Run best model on test set
+  CHOSEN_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
+else
+  # Run latest model on test set
+  CHOSEN_MODEL_NAME=$(python finding_latest_model.py -model_dir ${MODEL_DIR})
+fi
+echo "Running ${CHOSEN_MODEL_NAME} on test set..."
 # Here we set -encoder_type=audio since we're only insterested in Speech Translation task
-python translate.py -model ${MODEL_DIR}/$BEST_MODEL_NAME \
+python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
     -src_lang $SRC_LANG \
     -tgt_lang $TGT_LANG \

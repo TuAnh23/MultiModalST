@@ -382,16 +382,17 @@ class XETrainer(BaseTrainer):
             'amp': amp.state_dict()
         }
 
+        # check the save directory here
+        checkpoint_dir = os.path.dirname(opt.save_model)
+        existed_save_files = checkpoint_paths(checkpoint_dir)
+        for save_file in existed_save_files[opt.keep_save_files-1:]:
+            print(" * Deleting old save file %s ...." % save_file)
+            os.remove(save_file)
+
         file_name = '%s_ppl_%.6f_e%.2f.pt' % (opt.save_model, valid_ppl, epoch)
         print('Writing to %s' % file_name)
         torch.save(checkpoint, file_name)
 
-        # check the save directory here
-        checkpoint_dir = os.path.dirname(opt.save_model)
-        existed_save_files = checkpoint_paths(checkpoint_dir)
-        for save_file in existed_save_files[opt.keep_save_files:]:
-            print(" * Deleting old save file %s ...." % save_file)
-            os.remove(save_file)
 
     def eval(self, data):
         total_loss = 0

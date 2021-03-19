@@ -219,7 +219,7 @@ grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/sh
 BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
 echo "Running ${BEST_MODEL_NAME} on test set..."
 # Here we set -encoder_type=audio since we're only insterested in Speech Translation task
-python -u translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
+python translate.py -model ${MODEL_DIR}/$BEST_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
     -src_lang $SRC_LANG \
     -tgt_lang $TGT_LANG \

@@ -186,7 +186,7 @@ grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/sh
 # Run best model on test set
 BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
 echo "Running ${BEST_MODEL_NAME} on test set..."
-python -u translate.py -model models/$SUB_DIR/$BEST_MODEL_NAME \
+python translate.py -model ${MODEL_DIR}/$BEST_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_test.${SRC_EXTENSION} \
     -concat $CONCAT \
     -asr_format scp \

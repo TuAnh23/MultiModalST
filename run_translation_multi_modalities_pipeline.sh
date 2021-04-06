@@ -7,9 +7,10 @@ conda activate BachelorThesisST
 CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
-SUB_DATA_NAME=dummy
-EXPERIMENT_NAME=${SUB_DATA_NAME}
+SUB_DATA_NAME=full
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt # Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
 FINAL_MODEL="latest" # if best, evaluate the best model. if latest, evaluate the latest model
+EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks 
 # End of manual variable setting
 SRC_MODALITY=mix
 TGT_MODALITY=text
@@ -121,10 +122,11 @@ echo "Training model..."
 # Define some argument values
 # NOTE, the main data should have src audio, not text, since with the same number of sentences, src audio would need
 # more batches, and we want all data to be covered
-DATA=${DATA_DIR}/${SUB_DIR}/st_data
+DATA=${DATA_DIR}/${SUB_DIR}/asr_data
 DATA_FORMAT=scp
-ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${DATA_DIR}/${SUB_DIR}/asr_data"
-ADDITIONAL_DATA_FORMAT="mmem;scp"
+ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data"
+ADDITIONAL_DATA_FORMAT="mmem"
+DATA_RATIO="19;1"
 input_size=$((80*$CONCAT))
 LAYER=12
 TRANSFORMER=transformer
@@ -144,6 +146,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -data_format $DATA_FORMAT \
     -additional_data $ADDITIONAL_DATA \
     -additional_data_format $ADDITIONAL_DATA_FORMAT \
+    -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
     -save_model ${MODEL_DIR}/model \
@@ -182,6 +185,7 @@ else
     -data_format $DATA_FORMAT \
     -additional_data $ADDITIONAL_DATA \
     -additional_data_format $ADDITIONAL_DATA_FORMAT \
+    -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
     -save_model ${MODEL_DIR}/model \
@@ -227,6 +231,7 @@ else
 fi
 echo "Running ${CHOSEN_MODEL_NAME} on test set..."
 # Here we set -encoder_type=audio since we're only insterested in Speech Translation task
+echo "Evaluating ST"
 python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
     -src_lang $SRC_LANG \
@@ -235,18 +240,62 @@ python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
     -asr_format scp \
     -encoder_type audio \
     -tgt $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}_test.${TGT_EXTENSION}  \
-    -output ${EXPERIMENT_DIR}/encoded_translations.txt \
+    -output ${EXPERIMENT_DIR}/encoded_translations_st.txt \
     -batch_size 5 \
     -max_sent_length 1024 \
     -gpu 0
 # Evaluate the model's translations
-if [ "${SRC_LANG}" = "${TGT_LANG}" ]; then
-  TASK=asr
-else
-  TASK=translation
-fi
+TASK=translation
 python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
-    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations.txt \
+    -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations_st.txt \
     -text_encoder_decoder $DATA_DIR/${TGT_LANG}_${TGT_MODALITY}.model \
     -reference_text $DATA_DIR/${TGT_LANG}_raw_${TGT_MODALITY}_test.txt \
-    -task $TASK
+    -task $TASK \
+    -specific_task st
+# Evaluate ASR
+if [[ "$EXPERIMENT_NAME" = *"asr"* ]] && [[ "$EVALUATE_ADDITIONAL_TASKS" = "yes" ]]; then
+  echo "Evaluating ASR"
+  python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
+      -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
+      -src_lang $SRC_LANG \
+      -tgt_lang $SRC_LANG \
+      -concat $CONCAT \
+      -asr_format scp \
+      -encoder_type audio \
+      -tgt $DATA_DIR/${SRC_LANG}_text_test.txt  \
+      -output ${EXPERIMENT_DIR}/encoded_translations_asr.txt \
+      -batch_size 5 \
+      -max_sent_length 1024 \
+      -gpu 0
+  # Evaluate the model's translations
+  TASK=asr
+  python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
+      -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations_asr.txt \
+      -text_encoder_decoder $DATA_DIR/${SRC_LANG}_text.model \
+      -reference_text $DATA_DIR/${SRC_LANG}_raw_text_test.txt \
+      -task $TASK \
+      -specific_task asr
+fi
+# Evaluate MT
+if [[ "$EXPERIMENT_NAME" = *"mt"* ]] && [[ "$EVALUATE_ADDITIONAL_TASKS" = "yes" ]]; then
+  echo "Evaluating MT"
+  python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
+      -src $DATA_DIR/${SRC_LANG}_text_test.txt \
+      -src_lang $SRC_LANG \
+      -tgt_lang $TGT_LANG \
+      -concat $CONCAT \
+      -encoder_type text \
+      -tgt $DATA_DIR/${TGT_LANG}_text_test.txt  \
+      -output ${EXPERIMENT_DIR}/encoded_translations_mt.txt \
+      -batch_size 5 \
+      -max_sent_length 1024 \
+      -gpu 0
+  # Evaluate the model's translations
+  TASK=translation
+  python translation_evaluation.py -save_data ${EXPERIMENT_DIR} \
+      -encoded_output_text ${EXPERIMENT_DIR}/encoded_translations_mt.txt \
+      -text_encoder_decoder $DATA_DIR/${TGT_LANG}_text.model \
+      -reference_text $DATA_DIR/${TGT_LANG}_raw_text_test.txt \
+      -task $TASK \
+      -specific_task mt
+fi

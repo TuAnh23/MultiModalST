@@ -15,6 +15,8 @@ parser.add_argument('-reference_text', required=True,
                     help='Path to the reference text.')
 parser.add_argument('-task', required=True,
                     help='Options are [asr|translation]')
+parser.add_argument('-specific_task', required=False, default="",
+                    help='Options are [asr|st|mt]')
 
 
 def decode_text(model_path, encoded_text_file, output_text_file):
@@ -37,7 +39,7 @@ def decode_text(model_path, encoded_text_file, output_text_file):
 
 def main():
     opt = parser.parse_args()
-    model_output_file = f'{opt.save_data}/raw_text_output.txt'
+    model_output_file = f'{opt.save_data}/raw_text_output_{opt.specific_task}.txt'
     decode_text(model_path=opt.text_encoder_decoder, encoded_text_file=opt.encoded_output_text,
                 output_text_file=model_output_file)
     with open(opt.reference_text, 'r', encoding="utf-8") as f:
@@ -45,14 +47,17 @@ def main():
     with open(model_output_file, 'r', encoding="utf-8") as f:
         model_outputs = f.readlines()
 
+    if opt.specific_task != "":
+        with open(f"{opt.save_data}/score.txt", 'a', encoding="utf-8") as f:
+            f.write(f"{opt.specific_task}: ")
     if opt.task == "translation":
         bleu = sacrebleu.corpus_bleu(model_outputs, [reference_texts])
-        with open(f"{opt.save_data}/BLEU_score.txt", 'w', encoding="utf-8") as f:
-            f.write(f"BLEU score: {bleu.score}")
+        with open(f"{opt.save_data}/score.txt", 'a', encoding="utf-8") as f:
+            f.write(f"BLEU score: {bleu.score} \n")
     elif opt.task == "asr":
         scorer = WERScorer()
-        with open(f"{opt.save_data}/WER_score.txt", 'w', encoding="utf-8") as f:
-            f.write(f"WER score: {scorer.score(model_outputs, [reference_texts]).corpus_score}")
+        with open(f"{opt.save_data}/score.txt", 'a', encoding="utf-8") as f:
+            f.write(f"WER score: {scorer.score(model_outputs, [reference_texts]).corpus_score} \n")
 
 
 if __name__ == "__main__":

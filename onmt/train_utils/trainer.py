@@ -64,11 +64,14 @@ class BaseTrainer(object):
     def add_additional_data(self, d, ratio):
         self.additional_data_train = [data['train_data'] for data in d]
         self.additional_data_valid = [data['valid_data'] for data in d]
-        if ratio == "-1":
-            self.additional_data_ratio = [1] * (len(self.additional_data_train) + 1)
-        else:
+        if ratio != "-1":
             self.additional_data_ratio = [int(s) for s in ratio.split(";")]
+            # The first element correspond to the ratio of the main data
             assert (len(self.additional_data_ratio) == len(self.additional_data_train) + 1)
+        else:
+            # If ratio == -1 (i.e. not specified), we will specified the ratio later on such that every dataset is
+            # iterated once in each epoch
+            self.additional_data_ratio = None
 
     def run(self, *args, **kwargs):
 
@@ -483,6 +486,15 @@ class XETrainer(BaseTrainer):
                                                                 num_workers=opt.num_workers, epoch=epoch,
                                                                 buffer_size=opt.buffer_size)
                                          for additional_dataset in self.additional_data_train]
+
+        if self.additional_data_ratio is None:
+            # Set the ratio such that every dataset is iterated once every epoch
+            numb_of_batches_main_data = len(data_iterator)
+            numbs_of_batches_additional_data = [len(x) for x in additional_data_iterators]
+            numbs_of_batches_all_data = [numb_of_batches_main_data] + numbs_of_batches_additional_data
+            min_numb_batches = min(numbs_of_batches_all_data)
+            ratio = [x//min_numb_batches for x in numbs_of_batches_all_data]
+            self.additional_data_ratio = ratio
 
         if resume:
             data_iterator.load_state_dict(itr_progress)

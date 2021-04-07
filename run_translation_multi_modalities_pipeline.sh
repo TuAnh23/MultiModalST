@@ -229,7 +229,7 @@ else
   # Run latest model on test set
   CHOSEN_MODEL_NAME=$(python finding_latest_model.py -model_dir ${MODEL_DIR})
 fi
-echo "Running ${CHOSEN_MODEL_NAME} on test set..."
+echo "Running ${FINAL_MODEL} model: ${CHOSEN_MODEL_NAME} on test set..." | tee ${EXPERIMENT_DIR}/note.txt
 # Here we set -encoder_type=audio since we're only insterested in Speech Translation task
 echo "Evaluating ST"
 python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \

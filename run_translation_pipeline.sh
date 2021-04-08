@@ -4,17 +4,20 @@
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
 # Manual variable setting
-CONT_FROM_CHECKPOINT=yes  # yes or no
+CONT_FROM_CHECKPOINT="no"  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 SRC_MODALITY=text # Can be text or audio
+SUB_DATA_NAME=full
+EXPERIMENT_NAME=${SUB_DATA_NAME}
+FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
 # End of manual variable setting
 TGT_MODALITY=text
 TGT_EXTENSION=txt
 if [ "${SRC_LANG}" = "en" ]; then
-  DATA_DIR=data/CoVoST2/preprocessed/full/en-X
+  DATA_DIR=data/CoVoST2/preprocessed/${SUB_DATA_NAME}/en-X
 else
-  DATA_DIR=data/CoVoST2/preprocessed/full/${SRC_LANG}-${TGT_LANG}
+  DATA_DIR=data/CoVoST2/preprocessed/${SUB_DATA_NAME}/${SRC_LANG}-${TGT_LANG}
 fi
 if [ "$SRC_MODALITY" = "audio" ]; then
   SRC_EXTENSION=scp
@@ -59,14 +62,14 @@ else
   fi
 fi
 # Whether continue from a checkpoint
-MODEL_DIR=models/${SUB_DIR}
-EXPERIMENT_DIR=experiments/${SUB_DIR}
+MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}
+EXPERIMENT_DIR=experiments/${SUB_DIR}_${EXPERIMENT_NAME}
 TOTAL_EPOCHS=64
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
-  # Find best model to continue from
-  BEST_CHECKPONTED=${MODEL_DIR}/$(python finding_best_model.py -model_dir $MODEL_DIR)
+  # Find latest model to continue from
+  LATEST_CHECKPONTED=${MODEL_DIR}/$(python finding_latest_model.py -model_dir $MODEL_DIR)
   # Set the number of remanining epochs to be run
-  CURRENT_EPOCH=`echo $BEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
+  CURRENT_EPOCH=`echo $LATEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
   N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
 else
   # Delete old models and log files if any and create new ones
@@ -79,7 +82,7 @@ else
   fi
   mkdir ${EXPERIMENT_DIR}
   # No checkpointed model to train from
-  BEST_CHECKPONTED=""
+  LATEST_CHECKPONTED=""
   # Set the number of epochs to be run
   N_EPOCHS=$TOTAL_EPOCHS
 fi
@@ -115,7 +118,7 @@ if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
   python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
           -data_format $FORMAT \
           -save_model ${MODEL_DIR}/model \
-          -load_from $BEST_CHECKPONTED \
+          -load_from $LATEST_CHECKPONTED \
           -model $TRANSFORMER \
           -batch_size_words $BATCH_SIZE_WORDS \
           -batch_size_update 24568 \
@@ -183,10 +186,15 @@ else
 fi
 head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
-# Run best model on test set
-BEST_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
-echo "Running ${BEST_MODEL_NAME} on test set..."
-python translate.py -model ${MODEL_DIR}/$BEST_MODEL_NAME \
+if [ "${FINAL_MODEL}" = "best" ]; then
+  # Run best model on test set
+  CHOSEN_MODEL_NAME=$(python finding_best_model.py -model_dir ${MODEL_DIR})
+else
+  # Run latest model on test set
+  CHOSEN_MODEL_NAME=$(python finding_latest_model.py -model_dir ${MODEL_DIR})
+fi
+echo "Running ${FINAL_MODEL} model: ${CHOSEN_MODEL_NAME} on test set..." | tee ${EXPERIMENT_DIR}/note.txt
+python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_${SRC_MODALITY}_test.${SRC_EXTENSION} \
     -concat $CONCAT \
     -asr_format scp \

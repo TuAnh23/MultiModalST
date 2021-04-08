@@ -487,7 +487,7 @@ class XETrainer(BaseTrainer):
                                                                 buffer_size=opt.buffer_size)
                                          for additional_dataset in self.additional_data_train]
 
-        if self.additional_data_ratio is None:
+        if opt.additional_data != 'none' and self.additional_data_ratio is None:
             # Set the ratio such that every dataset is iterated once every epoch
             numb_of_batches_main_data = len(data_iterator)
             numbs_of_batches_additional_data = [len(x) for x in additional_data_iterators]

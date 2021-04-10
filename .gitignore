@@ -4,7 +4,7 @@
 .idea/*
 
 # Ignore data
-data/
+data/CoVoST2
 *.pt
 *.dict
 *.scp

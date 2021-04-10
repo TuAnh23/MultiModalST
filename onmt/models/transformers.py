@@ -117,6 +117,9 @@ class TransformerEncoder(nn.Module):
         else:
             self.word_lut = embedding
 
+        self.change_residual_at = opt.change_residual_at
+        self.change_residual = None if self.change_residual_at is None else opt.change_residual
+
         self.time_transformer = positional_encoder
         self.language_embedding = language_embeddings
 
@@ -143,9 +146,17 @@ class TransformerEncoder(nn.Module):
             # linearly decay the death rate
             death_r = (_l + 1.0) / self.layers * self.death_rate
 
+            change_residual = None
+            change_residual_here = (self.change_residual_at == 0) or \
+                                   (self.change_residual_at == _l + 1) or \
+                                   (self.change_residual_at == -1 and _l == self.layers - 1)
+            if change_residual_here:
+                print('*** Layer (indexing from 0)', _l, 'change residual to code', self.change_residual)
+                change_residual = self.change_residual
+
             if not self.lsh_src_attention:
                 if not self.reversible:
-                    block = EncoderLayer(self.opt, death_rate=death_r)
+                    block = EncoderLayer(self.opt, death_rate=death_r, change_residual=change_residual)
                 else:
                     block = ReversibleTransformerEncoderLayer(self.opt, death_rate=death_r)
 

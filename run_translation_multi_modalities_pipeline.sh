@@ -149,6 +149,8 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
+    -change_residual_at $((ENC_LAYER/2)) \
+    -change_residual 2 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
@@ -188,6 +190,8 @@ else
     -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
+    -change_residual_at $((ENC_LAYER/2)) \
+    -change_residual 2 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \

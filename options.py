@@ -323,6 +323,14 @@ def make_parser(parser):
     parser.add_argument('-weight_drop', type=float, default=0.0,
                         help='dropout rate for the main weights of the MFW model')
 
+    # Language similarity
+    parser.add_argument('-change_residual_at', type=int, default=None,
+                        help='In which encoder layer to change residual connections.'
+                             'e.g. 1 (1st layer), -1 (last), 0 (all layers), None (do not change)')
+    parser.add_argument('-change_residual', type=int, default=None,
+                        help='How to change the residual connections'
+                             '1: replace residual by meanpool, 2: remove residual')
+
     # for Reformer
     # parser.add_argument('-lsh_src_attention', action='store_true',
     #                     help='Using LSH for source attention')

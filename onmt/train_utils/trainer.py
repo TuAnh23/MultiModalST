@@ -68,10 +68,17 @@ class BaseTrainer(object):
             self.additional_data_ratio = [int(s) for s in ratio.split(";")]
             # The first element correspond to the ratio of the main data
             assert (len(self.additional_data_ratio) == len(self.additional_data_train) + 1)
+
+            log_str = "Data ratio: [ main data "
+            for i in range(0, len(self.additional_data_train)):
+                log_str = log_str + f"; addtional data {i} "
+            log_str = log_str + f"] = [{ratio}]"
+            print(log_str)
         else:
             # If ratio == -1 (i.e. not specified), we will specified the ratio later on such that every dataset is
             # iterated once in each epoch
             self.additional_data_ratio = None
+            print("Data ratio: adjusted so that each dataset is iterated over once in every epoch")
 
     def run(self, *args, **kwargs):
 

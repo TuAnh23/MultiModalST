@@ -224,7 +224,7 @@ else
     -update_frequency -1 \
     -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
 fi
-head -16 ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
+sed '/.*Validation perplexity.*/{s///;q;}' ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep -e "Train perplexity" -e "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 if [ "${FINAL_MODEL}" = "best" ]; then
   # Run best model on test set

@@ -57,6 +57,7 @@ def numpy_to_torch(tensor_list):
 def main():
     if not opt.multi_dataset:
         # Load the data
+        print('Loading main data')
         dicts, train_data, valid_data = load_data(data_path=opt.data, data_format=opt.data_format)
         # Load the additional data
         if opt.additional_data != 'none':
@@ -64,7 +65,11 @@ def main():
             additional_data_files = opt.additional_data.split(";")
             additional_data_formats = opt.additional_data_format.split(";")
             assert (len(additional_data_files) == len(additional_data_formats))
+            additional_data_index = 0
             for (additional_data_file, additional_data_format) in zip(additional_data_files, additional_data_formats):
+                print('Loading additional data', additional_data_index)
+                additional_data_index = additional_data_index + 1
+
                 dicts_additional, train_data_additional, valid_data_additional = load_data(
                     data_path=additional_data_file,
                     data_format=additional_data_format)

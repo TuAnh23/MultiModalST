@@ -173,9 +173,11 @@ def build_tm_model(opt, dicts):
         elif opt.encoder_type == "audio":
             encoder = TransformerEncoder(opt, None, positional_encoder, opt.encoder_type)
         elif opt.encoder_type == "mix":
+            print("* MixedEncoder: 2 independent parallel encoders, one for text input and one for audio input: ")
             text_encoder = TransformerEncoder(opt, embedding_src, positional_encoder,
                                               "text", language_embeddings=language_embeddings)
-            audio_encoder = TransformerEncoder(opt, None, positional_encoder, "audio", language_embeddings=language_embeddings)
+            audio_encoder = TransformerEncoder(opt, None, positional_encoder, "audio",
+                                               language_embeddings=language_embeddings)
             encoder = MixedEncoder(text_encoder, audio_encoder)
         else:
             print("Unknown encoder type:", opt.encoder_type)

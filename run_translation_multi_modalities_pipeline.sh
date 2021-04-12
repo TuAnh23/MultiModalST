@@ -162,7 +162,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -input_size $input_size \
     -concat $CONCAT \
     -layers $LAYER \
-    -encoder_layers $ENC_LAYER \
+    -audio_encoder_layers $ENC_LAYER \
     -death_rate $DEATH_RATE \
     -model_size $size \
     -inner_size $innersize \
@@ -203,7 +203,7 @@ else
     -input_size $input_size \
     -concat $CONCAT \
     -layers $LAYER \
-    -encoder_layers $ENC_LAYER \
+    -audio_encoder_layers $ENC_LAYER \
     -death_rate $DEATH_RATE \
     -model_size $size \
     -inner_size $innersize \

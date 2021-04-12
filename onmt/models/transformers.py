@@ -67,6 +67,10 @@ class TransformerEncoder(nn.Module):
             self.layers = opt.encoder_layers
         else:
             self.layers = opt.layers
+        if encoder_type == 'text' and hasattr(opt, 'text_encoder_layers') and opt.text_encoder_layers != -1:
+            self.layers = opt.text_encoder_layers
+        if encoder_type == 'audio' and hasattr(opt, 'audio_encoder_layers') and opt.audio_encoder_layers != -1:
+            self.layers = opt.audio_encoder_layers
         self.dropout = opt.dropout
         self.word_dropout = opt.word_dropout
         self.attn_dropout = opt.attn_dropout

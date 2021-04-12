@@ -66,6 +66,12 @@ def make_parser(parser):
                         help='Number of layers in the Transformer encoder/decoder')
     parser.add_argument('-encoder_layers', type=int, default=-1,
                         help='Number of layers in the LSTM encoder if different')
+    parser.add_argument('-text_encoder_layers', type=int, default=-1,
+                        help='Number of layers in the LSTM encoder for text input if different (used in the '
+                             'multimodalities case)')
+    parser.add_argument('-audio_encoder_layers', type=int, default=-1,
+                        help='Number of layers in the LSTM encoder for audio input if different (used in the '
+                             'multimodalities case)')
     parser.add_argument('-max_pos_length', type=int, default=128,
                         help='Maximum distance length for relative self-attention')
     parser.add_argument('-learnable_position_encoding', action='store_true',

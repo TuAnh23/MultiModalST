@@ -178,7 +178,7 @@ def build_tm_model(opt, dicts):
                                               "text", language_embeddings=language_embeddings)
             audio_encoder = TransformerEncoder(opt, None, positional_encoder, "audio",
                                                language_embeddings=language_embeddings)
-            encoder = MixedEncoder(text_encoder, audio_encoder)
+            encoder = MixedEncoder(text_encoder, audio_encoder, share_encoders_parameter=opt.share_encoders_parameter)
         else:
             print("Unknown encoder type:", opt.encoder_type)
             exit(-1)

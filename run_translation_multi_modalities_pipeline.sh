@@ -8,7 +8,10 @@ CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 SUB_DATA_NAME=full
-EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt # Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
+# Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
+# DEPI: disentangling positional info
+# SE: share encoders
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_DEPI_SE
 FINAL_MODEL="latest" # if best, evaluate the best model. if latest, evaluate the latest model
 EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks 
 # End of manual variable setting
@@ -139,6 +142,7 @@ optim_str="-optim adam"
 BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
 DEATH_RATE=0.5
+SHARE_ENCODERS="all_text_enc"
 # Run training process
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     python -u train.py -data $DATA \
@@ -163,6 +167,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -concat $CONCAT \
     -layers $LAYER \
     -audio_encoder_layers $ENC_LAYER \
+    -share_encoders_parameter $SHARE_ENCODERS \
     -death_rate $DEATH_RATE \
     -model_size $size \
     -inner_size $innersize \
@@ -204,6 +209,7 @@ else
     -concat $CONCAT \
     -layers $LAYER \
     -audio_encoder_layers $ENC_LAYER \
+    -share_encoders_parameter $SHARE_ENCODERS \
     -death_rate $DEATH_RATE \
     -model_size $size \
     -inner_size $innersize \

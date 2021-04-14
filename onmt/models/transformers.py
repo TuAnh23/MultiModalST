@@ -22,10 +22,25 @@ torch_version = float(torch.__version__[:3])
 
 class MixedEncoder(nn.Module):
 
-    def __init__(self, text_encoder, audio_encoder):
+    def __init__(self, text_encoder, audio_encoder, share_encoders_parameter):
         super(MixedEncoder, self).__init__()
+        if share_encoders_parameter == 'all_text_enc':
+            self.share_encoders_parameter(text_encoder=text_encoder, audio_encoder=audio_encoder)
         self.text_encoder = text_encoder
         self.audio_encoder = audio_encoder
+
+    def share_encoders_parameter(self, text_encoder, audio_encoder):
+        """
+        Share all layers in the text encoder with the last layers in the audio encoders
+        :return:
+        """
+        n_text_encoder_layers = text_encoder.layers
+        n_audio_encoder_layers = audio_encoder.layers
+        print(f"* Sharing the {n_text_encoder_layers} layers of text encoder with the last {n_text_encoder_layers} "
+              f"layers of audio encoder.")
+        for i in range(0, n_text_encoder_layers):
+            audio_encoder.layer_modules[n_audio_encoder_layers - n_text_encoder_layers + i] = \
+                text_encoder.layer_modules[i]
 
     def forward(self, input, **kwargs):
         """

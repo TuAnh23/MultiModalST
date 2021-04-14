@@ -78,7 +78,7 @@ class BaseTrainer(object):
             # If ratio == -1 (i.e. not specified), we will specified the ratio later on such that every dataset is
             # iterated once in each epoch
             self.additional_data_ratio = None
-            print("Data ratio: adjusted so that each dataset is iterated over once in every epoch")
+            print("* Data ratio: adjusted so that each dataset is iterated over once in every epoch")
 
     def run(self, *args, **kwargs):
 

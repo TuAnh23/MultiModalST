@@ -72,6 +72,9 @@ def make_parser(parser):
     parser.add_argument('-audio_encoder_layers', type=int, default=-1,
                         help='Number of layers in the LSTM encoder for audio input if different (used in the '
                              'multimodalities case)')
+    parser.add_argument('-share_encoders_parameter', default=None, type=str,
+                        help="How to share parameters of audio encoder and text encoder (used in the mix "
+                             "modalities case). Option is 'all_text_enc'. Default is not to share.")
     parser.add_argument('-max_pos_length', type=int, default=128,
                         help='Maximum distance length for relative self-attention')
     parser.add_argument('-learnable_position_encoding', action='store_true',

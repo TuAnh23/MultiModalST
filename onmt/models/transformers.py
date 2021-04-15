@@ -82,6 +82,7 @@ class TransformerEncoder(nn.Module):
             self.layers = opt.encoder_layers
         else:
             self.layers = opt.layers
+        # Specify the number of layers for text and audio encoders independently in the multi-modalities case
         if encoder_type == 'text' and hasattr(opt, 'text_encoder_layers') and opt.text_encoder_layers != -1:
             self.layers = opt.text_encoder_layers
         if encoder_type == 'audio' and hasattr(opt, 'audio_encoder_layers') and opt.audio_encoder_layers != -1:
@@ -138,6 +139,13 @@ class TransformerEncoder(nn.Module):
 
         self.change_residual_at = opt.change_residual_at
         self.change_residual = None if self.change_residual_at is None else opt.change_residual
+        # Specify the change_residual setting for text and audio encoders independently in the multi-modalities case
+        if encoder_type == 'text' and opt.text_enc_change_residual_at is not None:
+            self.change_residual_at = opt.text_enc_change_residual_at
+            self.change_residual = None if self.change_residual_at is None else opt.text_enc_change_residual
+        if encoder_type == 'audio' and opt.audio_enc_change_residual_at is not None:
+            self.change_residual_at = opt.audio_enc_change_residual_at
+            self.change_residual = None if self.change_residual_at is None else opt.audio_enc_change_residual
 
         self.time_transformer = positional_encoder
         self.language_embedding = language_embeddings

@@ -137,7 +137,8 @@ OPTIM=Adam
 LR=0.001
 size=512
 innersize=$((size*4))
-ENC_LAYER=32
+AUDIO_ENC_LAYERS=32
+TEXT_ENC_LAYERS=$LAYER
 optim_str="-optim adam"
 BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
@@ -153,8 +154,8 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
-    -change_residual_at $((ENC_LAYER/2)) \
-    -change_residual 2 \
+    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
+    -text_enc_change_residual 2 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
@@ -166,7 +167,8 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -input_size $input_size \
     -concat $CONCAT \
     -layers $LAYER \
-    -audio_encoder_layers $ENC_LAYER \
+    -audio_encoder_layers $AUDIO_ENC_LAYERS \
+    -text_encoder_layers $TEXT_ENC_LAYERS \
     -share_encoders_parameter $SHARE_ENCODERS \
     -death_rate $DEATH_RATE \
     -model_size $size \
@@ -195,8 +197,8 @@ else
     -data_ratio $DATA_RATIO \
     -use_language_embedding \
     -language_embedding_type concat \
-    -change_residual_at $((ENC_LAYER/2)) \
-    -change_residual 2 \
+    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
+    -text_enc_change_residual 2 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
@@ -208,7 +210,8 @@ else
     -input_size $input_size \
     -concat $CONCAT \
     -layers $LAYER \
-    -audio_encoder_layers $ENC_LAYER \
+    -audio_encoder_layers $AUDIO_ENC_LAYERS \
+    -text_encoder_layers $TEXT_ENC_LAYERS \
     -share_encoders_parameter $SHARE_ENCODERS \
     -death_rate $DEATH_RATE \
     -model_size $size \

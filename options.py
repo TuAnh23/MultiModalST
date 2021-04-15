@@ -340,6 +340,24 @@ def make_parser(parser):
                         help='How to change the residual connections'
                              '1: replace residual by meanpool, 2: remove residual')
 
+    parser.add_argument('-audio_enc_change_residual_at', type=int, default=None,
+                        help='In which encoder layer to change residual connections.'
+                             'e.g. 1 (1st layer), -1 (last), 0 (all layers), None (do not change)'
+                             '(specified for audio encoder in the multi-modalities case)')
+    parser.add_argument('-audio_enc_change_residual', type=int, default=None,
+                        help='How to change the residual connections'
+                             '1: replace residual by meanpool, 2: remove residual'
+                             '(specified for audio encoder in the multi-modalities case)')
+
+    parser.add_argument('-text_enc_change_residual_at', type=int, default=None,
+                        help='In which encoder layer to change residual connections.'
+                             'e.g. 1 (1st layer), -1 (last), 0 (all layers), None (do not change)'
+                             '(specified for text encoder in the multi-modalities case)')
+    parser.add_argument('-text_enc_change_residual', type=int, default=None,
+                        help='How to change the residual connections'
+                             '1: replace residual by meanpool, 2: remove residual'
+                             '(specified for text encoder in the multi-modalities case)')
+
     # for Reformer
     # parser.add_argument('-lsh_src_attention', action='store_true',
     #                     help='Using LSH for source attention')

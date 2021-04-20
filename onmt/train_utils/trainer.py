@@ -404,7 +404,7 @@ class XETrainer(BaseTrainer):
         torch.save(checkpoint, file_name)
 
 
-    def eval(self, data):
+    def eval(self, data, return_additional_info=False):
         total_loss = 0
         total_words = 0
         opt = self.opt
@@ -465,7 +465,11 @@ class XETrainer(BaseTrainer):
 
         self.model.train()
         self.loss_function.train()
-        return total_loss / total_words
+
+        if return_additional_info:
+            return total_loss, total_words, total_loss / total_words
+        else:
+            return total_loss / total_words
 
     def train_epoch(self, epoch, resume=False, itr_progress=None, additional_itrs_progresses=None):
 
@@ -720,20 +724,29 @@ class XETrainer(BaseTrainer):
                     num_accumulated_sents = 0
                     num_updates = self.optim._step
                     if opt.save_every > 0 and num_updates % opt.save_every == -1 % opt.save_every:
-                        valid_loss = self.eval(self.valid_data)
+                        valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                                    return_additional_info=True)
                         valid_ppl = math.exp(min(valid_loss, 100))
                         print('Validation perplexity: %g' % valid_ppl)
 
                         if opt.additional_data != 'none':
+                            combined_total_loss = valid_total_loss
+                            combined_total_words = valid_total_words
                             for i_additional in range(0, len(self.additional_data_valid)):
-                                additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                                additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                                    self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
                                 additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
                                 print('Validation perplexity on additional data %d: %g' % (i_additional,
                                                                                            additional_valid_ppl))
+                                combined_total_loss = combined_total_loss + additional_valid_total_loss
+                                combined_total_words = combined_total_words + additional_valid_total_words
+
+                            combined_valid_ppl = math.exp(min(combined_total_loss/combined_total_words, 100))
+                            print('Validation perplexity combined: %g' % combined_valid_ppl)
 
                         ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
                         if opt.additional_data != 'none':
-                            self.save(ep, valid_ppl, itr=data_iterator, additional_itrs=additional_data_iterators)
+                            self.save(ep, combined_valid_ppl, itr=data_iterator, additional_itrs=additional_data_iterators)
                         else:
                             self.save(ep, valid_ppl, itr=data_iterator)
 
@@ -863,15 +876,25 @@ class XETrainer(BaseTrainer):
         if self.cuda:
             self.warm_up()
 
-            valid_loss = self.eval(self.valid_data)
+            valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                        return_additional_info=True)
             valid_ppl = math.exp(min(valid_loss, 100))
             print('Validation perplexity: %g' % valid_ppl)
+
             if opt.additional_data != 'none':
+                combined_total_loss = valid_total_loss
+                combined_total_words = valid_total_words
                 for i_additional in range(0, len(self.additional_data_valid)):
-                    additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                    additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                        self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
                     additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
                     print('Validation perplexity on additional data %d: %g' % (i_additional,
                                                                                additional_valid_ppl))
+                    combined_total_loss = combined_total_loss + additional_valid_total_loss
+                    combined_total_words = combined_total_words + additional_valid_total_words
+
+                combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
+                print('Validation perplexity combined: %g' % combined_valid_ppl)
 
         self.start_time = time.time()
         for epoch in range(start_epoch, start_epoch + opt.epochs):
@@ -887,16 +910,30 @@ class XETrainer(BaseTrainer):
             print('Train perplexity: %g' % train_ppl)
 
             #  (2) evaluate on the validation set
-            valid_loss = self.eval(self.valid_data)
+            valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                        return_additional_info=True)
             valid_ppl = math.exp(min(valid_loss, 100))
             print('Validation perplexity: %g' % valid_ppl)
+
             if opt.additional_data != 'none':
+                combined_total_loss = valid_total_loss
+                combined_total_words = valid_total_words
                 for i_additional in range(0, len(self.additional_data_valid)):
-                    additional_valid_loss = self.eval(self.additional_data_valid[i_additional])
+                    additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                        self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
                     additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
                     print('Validation perplexity on additional data %d: %g' % (i_additional,
                                                                                additional_valid_ppl))
-            self.save(epoch, valid_ppl)
+                    combined_total_loss = combined_total_loss + additional_valid_total_loss
+                    combined_total_words = combined_total_words + additional_valid_total_words
+
+                combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
+                print('Validation perplexity combined: %g' % combined_valid_ppl)
+
+            if opt.additional_data != 'none':
+                self.save(epoch, combined_valid_ppl)
+            else:
+                self.save(epoch, valid_ppl)
             itr_progress = None
             additional_itrs_progresses = None
             resume = False

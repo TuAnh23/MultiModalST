@@ -12,7 +12,7 @@ SUB_DATA_NAME=full
 # DEPI: disentangling positional info
 # SE: share encoders
 EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_DEPI_SE
-FINAL_MODEL="latest" # if best, evaluate the best model. if latest, evaluate the latest model
+FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
 EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks 
 # End of manual variable setting
 SRC_MODALITY=mix

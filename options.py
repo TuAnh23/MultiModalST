@@ -562,4 +562,31 @@ def backward_compatible(opt):
     if not hasattr(opt, 'weight_drop'):
         opt.weight_drop = 0.0
 
+    if not hasattr(opt, 'text_encoder_layers'):
+        opt.text_encoder_layers = -1
+
+    if not hasattr(opt, 'audio_encoder_layers'):
+        opt.audio_encoder_layers = -1
+
+    if not hasattr(opt, 'share_encoders_parameter'):
+        opt.share_encoders_parameter = None
+
+    if not hasattr(opt, 'change_residual_at'):
+        opt.change_residual_at = None
+
+    if not hasattr(opt, 'change_residual'):
+        opt.change_residual = None
+
+    if not hasattr(opt, 'audio_enc_change_residual_at'):
+        opt.audio_enc_change_residual_at = None
+
+    if not hasattr(opt, 'audio_enc_change_residual'):
+        opt.audio_enc_change_residual = None
+
+    if not hasattr(opt, 'text_enc_change_residual_at'):
+        opt.text_enc_change_residual_at = None
+
+    if not hasattr(opt, 'text_enc_change_residual'):
+        opt.text_enc_change_residual = None
+
     return opt

@@ -2,7 +2,7 @@ import argparse
 import sentencepiece as spm
 import sacrebleu
 from vizseq.scorers.wer import WERScorer
-
+import string
 
 parser = argparse.ArgumentParser()
 parser.add_argument('-save_data', required=True,
@@ -55,9 +55,22 @@ def main():
         with open(f"{opt.save_data}/score.txt", 'a', encoding="utf-8") as f:
             f.write(f"BLEU score: {bleu.score} \n")
     elif opt.task == "asr":
+        model_outputs_processed = [process_text(line) for line in model_outputs]
+        reference_texts_processed = [process_text(line) for line in reference_texts]
         scorer = WERScorer()
         with open(f"{opt.save_data}/score.txt", 'a', encoding="utf-8") as f:
-            f.write(f"WER score: {scorer.score(model_outputs, [reference_texts]).corpus_score} \n")
+            f.write(f"WER score: {scorer.score(model_outputs_processed, [reference_texts_processed]).corpus_score} \n")
+
+
+def process_text(line):
+    # sentences are tokenized by sacreBLEU tokenizers, lowercased and with punctuation removed (except for apostrophes and hyphens)
+    # similar as in covost2 paper
+    tokenizer = sacrebleu.tokenizers.Tokenizer13a()
+    line = tokenizer(line)
+    line = line.lower()
+    removed_punctuations = string.punctuation.replace("'", "").replace("-", "")
+    line = line.translate(str.maketrans('', '', removed_punctuations))
+    return line
 
 
 if __name__ == "__main__":

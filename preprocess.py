@@ -315,7 +315,6 @@ def main():
     tgt_langs = opt.train_tgt_lang.split("|")
     if opt.all_langs is not None:
         langs = opt.all_langs.split("|")
-        langs = list(set(langs))
         for lang in (src_langs + tgt_langs):
             # All languages in src_langs and tgt_langs must be in langs
             assert lang in langs

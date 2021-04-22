@@ -84,6 +84,10 @@ def main():
                         # If there is no src vocab in the data dicts yet, then we add the src vocab of the additional
                         # data to it (for convennient)
                         dicts['src'] = dicts_additional['src']
+                # The language index (dicts['langs']) must be identical across datasets
+                for lang, lang_idx in dicts_additional['langs'].items():
+                    assert lang in dicts['langs'].keys()
+                    assert lang_idx == dicts['langs'][lang]
 
                 # Store this data to the list
                 additional_data.append({'dicts': dicts_additional, 'train_data': train_data_additional,
@@ -225,6 +229,16 @@ def main():
 
     if opt.load_from:
         checkpoint = torch.load(opt.load_from, map_location=lambda storage, loc: storage)
+
+        # Check whether the current dicts and the one loaded from checkpoint are identical
+        assert dicts['tgt'].size() == checkpoint['dicts']['tgt'].size()
+        if "src" in checkpoint['dicts']:
+            if "src" in dicts:
+                assert dicts['src'].size() == checkpoint['dicts']['src'].size()
+        for lang, lang_idx in checkpoint['dicts']['langs'].items():
+            assert lang in dicts['langs'].keys()
+            assert lang_idx == dicts['langs'][lang]
+
         print("* Loading dictionaries from the checkpoint")
         dicts = checkpoint['dicts']
     else:

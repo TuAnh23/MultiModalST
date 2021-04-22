@@ -28,7 +28,7 @@ else
   PREV_DATA_DIR=data/CoVoST2/preprocessed/${PREV_SUB_DATA_NAME}/${SRC_LANG}-${TGT_LANG}
 fi
 CONCAT=4
-SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}
+SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}_ft
 # Preprocess data
 if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
   echo "${SUB_DIR} already preprocessed. Make sure the new data use the SAME VOCAB as the prev data"

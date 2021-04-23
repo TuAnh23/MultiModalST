@@ -7,7 +7,7 @@ conda activate BachelorThesisST
 CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
-SUB_DATA_NAME=one_fouth
+SUB_DATA_NAME=one_fourth
 ARTIFICIAL_SUB_DATA_NAME=dummy
 # Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
 # DEPI: disentangling positional info
@@ -40,7 +40,7 @@ TGT_VOCAB=$DATA_DIR/${SUB_DIR}/tgt_vocab
 SRC_VOCAB=$DATA_DIR/${SUB_DIR}/src_vocab
 # Preprocess main data
 if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
-  echo "${SUB_DIR} already preprocessed"
+  echo "Main data in ${SUB_DIR} already preprocessed"
 else
   echo "Preprocessing main data"
   mkdir ${DATA_DIR}/${SUB_DIR}
@@ -110,9 +110,9 @@ else
 fi
 # Preprocess artificial data
 if [ -d ${AD_DATA_DIR}/${SUB_DIR} ]; then
-  echo "${SUB_DIR} already preprocessed"
+  echo "Artificial data (src audio --> reversed src text) in ${SUB_DIR} already preprocessed"
 else
-  echo "Preprocessing artificial data"
+  echo "Preprocessing artificial data (src audio --> reversed src text)"
   mkdir ${AD_DATA_DIR}/${SUB_DIR}
   # Use the same vocabs as for main data while preprocessing
   # Preprocess artificial ST data (source lang audio --> reversed source lang text)

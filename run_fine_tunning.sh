@@ -153,7 +153,7 @@ TEXT_ENC_LAYERS=$LAYER
 optim_str="-optim adam"
 BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
-DEATH_RATE=0.5
+DEATH_RATE=0.0
 SHARE_ENCODERS="all_text_enc"
 # Run training process
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then

@@ -45,7 +45,7 @@ else
   echo "Preprocessing main data"
   mkdir ${DATA_DIR}/${SUB_DIR}
   # Create a vocabulary for all text sources
-  python vocab_generator.py -filenames $DATA_DIR/${SRC_LANG}_text_train.txt \
+  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|$AD_DATA_DIR/${SRC_LANG}_text_train.txt" \
       -out_file $SRC_VOCAB
   # Create a vocabulary for all text targets (must include artificial target)
   python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt|${AD_DATA_DIR}/${ARTIFICIAL_LANG}_text_train.txt" \
@@ -131,8 +131,26 @@ else
       -asr \
       -src_type audio \
       -asr_format scp \
-      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_data \
+      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_st_data \
       -format scp \
+      -tgt_vocab $TGT_VOCAB
+  # Preprocess artificial MT data (source lang text --> reversed source lang text)
+  python preprocess.py -train_src $AD_DATA_DIR/${SRC_LANG}_text_train.txt  \
+      -train_tgt $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_train.txt  \
+      -valid_src $AD_DATA_DIR/${SRC_LANG}_text_val.txt  \
+      -valid_tgt $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_val.txt  \
+      -train_src_lang ${SRC_LANG} \
+      -train_tgt_lang ${ARTIFICIAL_LANG} \
+      -valid_src_lang ${SRC_LANG} \
+      -valid_tgt_lang ${ARTIFICIAL_LANG} \
+      -all_langs "${SRC_LANG}|${TGT_LANG}|${ARTIFICIAL_LANG}" \
+      -src_seq_length 512  \
+      -tgt_seq_length 512  \
+      -concat 1 \
+      -src_type text \
+      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_mt_data \
+      -format mmem \
+      -src_vocab $SRC_VOCAB \
       -tgt_vocab $TGT_VOCAB
 fi
 # Whether continue from a checkpoint
@@ -167,8 +185,8 @@ echo "Training model..."
 # more batches, and we want all data to be covered
 DATA=${DATA_DIR}/${SUB_DIR}/asr_data
 DATA_FORMAT=scp
-ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${AD_DATA_DIR}/${SUB_DIR}/ad_data"
-ADDITIONAL_DATA_FORMAT="mmem;scp"
+ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${AD_DATA_DIR}/${SUB_DIR}/ad_st_data;${AD_DATA_DIR}/${SUB_DIR}/ad_mt_data"
+ADDITIONAL_DATA_FORMAT="mmem;scp;mmem"
 DATA_RATIO="-1"
 input_size=$((80*$CONCAT))
 LAYER=12

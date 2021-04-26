@@ -104,7 +104,7 @@ fi
 MODEL_DIR=models/${EXPERIMENT_NAME}
 PREV_MODEL_DIR=models/${PREV_EXPERIMENT_NAME}
 EXPERIMENT_DIR=experiments/${EXPERIMENT_NAME}
-TOTAL_EPOCHS=64
+TOTAL_EPOCHS=128 # Should manually stop training when converge
 if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   # Find latest model to continue from
   LATEST_CHECKPONTED=${MODEL_DIR}/$(python finding_latest_model.py -model_dir $MODEL_DIR)

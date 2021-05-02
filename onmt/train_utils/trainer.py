@@ -364,8 +364,7 @@ class XETrainer(BaseTrainer):
                 self.valid_data.src_align_right = True
                 self.valid_data.tgt_align_right = False
 
-        if aux_loss_function is not None:
-            self.aux_loss_function = aux_loss_function
+        self.aux_loss_function = aux_loss_function
 
     def save(self, epoch, valid_ppl, itr=None, additional_itrs=None):
         opt = self.opt
@@ -510,11 +509,12 @@ class XETrainer(BaseTrainer):
             ratio = [x//min_numb_batches for x in numbs_of_batches_all_data]
             self.additional_data_ratio = ratio
 
-        # If auxilary loss is used, make sure ASR and MT data has aligned batches
-        # For now it does not support other additional data (other than ASR and MT)
-        assert len(self.additional_data_ratio) == 2
-        assert self.additional_data_ratio[0] == 1
-        assert self.additional_data_ratio[1] == 1
+        if self.aux_loss_function is not None:
+            # If auxilary loss is used, make sure ASR and MT data has aligned batches
+            # For now it does not support other additional data (other than ASR and MT)
+            assert len(self.additional_data_ratio) == 2
+            assert self.additional_data_ratio[0] == 1
+            assert self.additional_data_ratio[1] == 1
 
         if resume:
             data_iterator.load_state_dict(itr_progress)
@@ -572,14 +572,16 @@ class XETrainer(BaseTrainer):
         waiting_batches = []
 
         if self.aux_loss_function is not None:
-            # Stores the encoder output of text to calculate loss difference between text and audio
-            outputs_audio = None
+            # Stores the encoder output of audio to calculate loss difference between text and audio
+            audio_context = None
+            audio_src_mask = None
             # Stores the target lengths of the audio batch to make sure it is identical with the source length in the
             # text batch (i.e. make sure audio and text sentences are aligned)
             audio_tgt_lengths = None
 
             aux_loss_data = 0
 
+        update_flag = False
         while not data_iterator.end_of_epoch():
             curriculum = (epoch < opt.curriculum)
 
@@ -682,22 +684,26 @@ class XETrainer(BaseTrainer):
                 if self.cuda:
                     with amp.scale_loss(full_loss, optimizer) as scaled_loss:
                         scaled_loss.backward(retain_graph=
-                                             use_aux_loss and self.aux_loss_function is not None)
+                                             (use_aux_loss and self.aux_loss_function is not None)
+                                             and (not data_iterator.end_of_epoch())
+                                             and not (update_flag and run_waiting_batch))  # The graph is updated, so we cannot use the stored audio output
                 else:
                     full_loss.backward(retain_graph=
-                                       use_aux_loss and self.aux_loss_function is not None)
+                                       (use_aux_loss and self.aux_loss_function is not None)
+                                       and (not data_iterator.end_of_epoch())
+                                       and not (update_flag and run_waiting_batch))  # The graph is updated, so we cannot use the stored audio output
 
-                if use_aux_loss and self.aux_loss_function:
-                    if run_waiting_batch:
+                if use_aux_loss and (self.aux_loss_function is not None):
+                    if run_waiting_batch and not update_flag:
                         # Make sure text and audio sentences are aligned
                         assert len(batch.src_lengths) == len(audio_tgt_lengths)
-                        for i in range(0, len(batch.src_lengths)):
-                            assert batch.src_lengths[i] == audio_tgt_lengths[i] - 2
+                        for len_i in range(0, len(batch.src_lengths)):
+                            assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
 
                         # Calculate the difference between the text and audio
-                        aux_loss_dict = self.aux_loss_function(outputs_audio['context'],
+                        aux_loss_dict = self.aux_loss_function(audio_context,
                                                                outputs['context'],
-                                                               outputs_audio['src_mask'],
+                                                               audio_src_mask,
                                                                outputs['src_mask'])
                         aux_loss_data = aux_loss_dict['data']
                         loss = aux_loss_dict['loss'].div_(
@@ -709,8 +715,9 @@ class XETrainer(BaseTrainer):
                         else:
                             loss.backward()
 
-                    else:
-                        outputs_audio = outputs
+                    elif not run_waiting_batch:
+                        audio_context = outputs['context']  # .clone()
+                        audio_src_mask = outputs['src_mask']  # .clone()
                         audio_tgt_lengths = batch.tgt_lengths
 
                 del outputs

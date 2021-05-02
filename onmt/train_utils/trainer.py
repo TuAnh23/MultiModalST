@@ -310,7 +310,8 @@ class BaseTrainer(object):
 
 class XETrainer(BaseTrainer):
 
-    def __init__(self, model, loss_function, train_data, valid_data, dicts, opt, setup_optimizer=True):
+    def __init__(self, model, loss_function, train_data, valid_data, dicts, opt, setup_optimizer=True,
+                 aux_loss_function=None):
         super().__init__(model, loss_function, train_data, valid_data, dicts, opt)
 
         if opt.lfv_multilingual:
@@ -363,6 +364,9 @@ class XETrainer(BaseTrainer):
                 self.valid_data.src_align_right = True
                 self.valid_data.tgt_align_right = False
 
+        if aux_loss_function is not None:
+            self.aux_loss_function = aux_loss_function
+
     def save(self, epoch, valid_ppl, itr=None, additional_itrs=None):
         opt = self.opt
         model = self.model
@@ -395,14 +399,13 @@ class XETrainer(BaseTrainer):
         # check the save directory here
         checkpoint_dir = os.path.dirname(opt.save_model)
         existed_save_files = checkpoint_paths(checkpoint_dir)
-        for save_file in existed_save_files[opt.keep_save_files-1:]:
+        for save_file in existed_save_files[opt.keep_save_files - 1:]:
             print(" * Deleting old save file %s ...." % save_file)
             os.remove(save_file)
 
         file_name = '%s_ppl_%.6f_e%.2f.pt' % (opt.save_model, valid_ppl, epoch)
         print('Writing to %s' % file_name)
         torch.save(checkpoint, file_name)
-
 
     def eval(self, data, return_additional_info=False):
         total_loss = 0
@@ -507,6 +510,12 @@ class XETrainer(BaseTrainer):
             ratio = [x//min_numb_batches for x in numbs_of_batches_all_data]
             self.additional_data_ratio = ratio
 
+        # If auxilary loss is used, make sure ASR and MT data has aligned batches
+        # For now it does not support other additional data (other than ASR and MT)
+        assert len(self.additional_data_ratio) == 2
+        assert self.additional_data_ratio[0] == 1
+        assert self.additional_data_ratio[1] == 1
+
         if resume:
             data_iterator.load_state_dict(itr_progress)
             if opt.additional_data != 'none':
@@ -518,9 +527,14 @@ class XETrainer(BaseTrainer):
                     for i in range(0, len(additional_data_iterators)):
                         additional_data_iterators[i].load_state_dict(None)
 
-        epoch_iterator = data_iterator.next_epoch_itr(not streaming, pin_memory=opt.pin_memory)
+        if self.aux_loss_function is not None:
+            # Do not shuffle since we need the text and audio sentences to aligned
+            shuffle_data = False
+        else:
+            shuffle_data = not streaming
+        epoch_iterator = data_iterator.next_epoch_itr(shuffle_data, pin_memory=opt.pin_memory)
         if opt.additional_data != 'none':
-            additional_epoch_iterators = [additional_data_iterator.next_epoch_itr(not streaming,
+            additional_epoch_iterators = [additional_data_iterator.next_epoch_itr(shuffle_data,
                                                                                   pin_memory=opt.pin_memory)
                                           for additional_data_iterator in additional_data_iterators]
 
@@ -556,6 +570,16 @@ class XETrainer(BaseTrainer):
 
         # This will stores the batches of additional data waiting to be run in between batches of data
         waiting_batches = []
+
+        if self.aux_loss_function is not None:
+            # Stores the encoder output of text to calculate loss difference between text and audio
+            outputs_audio = None
+            # Stores the target lengths of the audio batch to make sure it is identical with the source length in the
+            # text batch (i.e. make sure audio and text sentences are aligned)
+            audio_tgt_lengths = None
+
+            aux_loss_data = 0
+
         while not data_iterator.end_of_epoch():
             curriculum = (epoch < opt.curriculum)
 
@@ -575,7 +599,6 @@ class XETrainer(BaseTrainer):
                     for j in range(len(self.additional_data_train)):
                         for k in range(0, self.additional_data_ratio[j + 1]):
                             if additional_data_iterators[j].end_of_epoch():
-                                # self.additional_data_train[j].shuffle()
                                 additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
                                                                                       seed=self.opt.seed,
                                                                                       num_workers=opt.num_workers,
@@ -655,11 +678,40 @@ class XETrainer(BaseTrainer):
                 # Normalizing the loss to grad scaler ensures this will not happen
                 full_loss.div_(grad_scaler)
 
+                use_aux_loss = epoch >= self.opt.aux_loss_start_from
                 if self.cuda:
                     with amp.scale_loss(full_loss, optimizer) as scaled_loss:
-                        scaled_loss.backward()
+                        scaled_loss.backward(retain_graph=
+                                             use_aux_loss and self.aux_loss_function is not None)
                 else:
-                    full_loss.backward()
+                    full_loss.backward(retain_graph=
+                                       use_aux_loss and self.aux_loss_function is not None)
+
+                if use_aux_loss and self.aux_loss_function:
+                    if run_waiting_batch:
+                        # Make sure text and audio sentences are aligned
+                        assert len(batch.src_lengths) == len(audio_tgt_lengths)
+                        for i in range(0, len(batch.src_lengths)):
+                            assert batch.src_lengths[i] == audio_tgt_lengths[i] - 2
+
+                        # Calculate the difference between the text and audio
+                        aux_loss_dict = self.aux_loss_function(outputs_audio['context'],
+                                                               outputs['context'],
+                                                               outputs_audio['src_mask'],
+                                                               outputs['src_mask'])
+                        aux_loss_data = aux_loss_dict['data']
+                        loss = aux_loss_dict['loss'].div_(
+                            grad_scaler)  # a little trick to avoid gradient overflow with fp16
+
+                        if self.cuda:
+                            with amp.scale_loss(loss, optimizer) as scaled_loss:
+                                scaled_loss.backward()
+                        else:
+                            loss.backward()
+
+                    else:
+                        outputs_audio = outputs
+                        audio_tgt_lengths = batch.tgt_lengths
 
                 del outputs
 
@@ -741,12 +793,13 @@ class XETrainer(BaseTrainer):
                                 combined_total_loss = combined_total_loss + additional_valid_total_loss
                                 combined_total_words = combined_total_words + additional_valid_total_words
 
-                            combined_valid_ppl = math.exp(min(combined_total_loss/combined_total_words, 100))
+                            combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
                             print('Validation perplexity combined: %g' % combined_valid_ppl)
 
                         ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
                         if opt.additional_data != 'none':
-                            self.save(ep, combined_valid_ppl, itr=data_iterator, additional_itrs=additional_data_iterators)
+                            self.save(ep, combined_valid_ppl, itr=data_iterator,
+                                      additional_itrs=additional_data_iterators)
                         else:
                             self.save(ep, valid_ppl, itr=data_iterator)
 
@@ -782,6 +835,9 @@ class XETrainer(BaseTrainer):
                         log_string += (" rev_ppl: %6.2f ; " % rev_ppl)
                         # mirror loss per word
                         log_string += (" mir_loss: %6.2f ; " % (report_mirror_loss / report_tgt_words))
+
+                    if epoch >= self.opt.aux_loss_start_from:
+                        log_string += (" Aux loss: %6.2f ; " % (aux_loss_data / report_src_words))
 
                     log_string += ("lr: %.7f ; updates: %7d; " %
                                    (optim.getLearningRate(),

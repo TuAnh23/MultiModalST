@@ -7,13 +7,13 @@ conda activate BachelorThesisST
 CONT_FROM_CHECKPOINT=no  # yes or no
 SRC_LANG=en
 TGT_LANG=de
-SUB_DATA_NAME=full
+SUB_DATA_NAME=one_fourth
 # Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
 # DEPI: disentangling positional info
 # SE: share encoders
-EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_DEPI_SE
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_DEPI_SE_JoinEmbedding_AuxLoss
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
-EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks 
+EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks
 # End of manual variable setting
 SRC_MODALITY=mix
 TGT_MODALITY=text
@@ -37,6 +37,9 @@ else
   # Create a vocabulary for all text targets
   python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt" \
       -out_file $DATA_DIR/${SUB_DIR}/tgt_vocab
+  # Create a vocabulary for all text sources and targets
+  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt" \
+      -out_file $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Use the above vocabs while preprocessing
   # Preprocess ASR data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
@@ -56,7 +59,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/asr_data \
       -format scp \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Preprocess ST data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -75,7 +78,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/st_data \
       -format scp \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Preprocess MT data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -92,8 +95,8 @@ else
       -src_type text \
       -save_data $DATA_DIR/${SUB_DIR}/mt_data \
       -format mmem \
-      -src_vocab $DATA_DIR/${SUB_DIR}/src_vocab \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -src_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab \
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
 fi
 # Whether continue from a checkpoint
 MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}
@@ -156,6 +159,9 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -language_embedding_type concat \
     -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
     -text_enc_change_residual 2 \
+    -aux_loss_start_from 1 \
+    -sim_loss_type 11 \
+    -aux_loss_weight 0.1 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
@@ -185,6 +191,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
     -normalize_gradient \
     -warmup_steps 8000 \
     -tie_weights \
+    -join_embedding \
     -seed 8877 \
     -log_interval 1000 \
     -update_frequency -1 \
@@ -199,6 +206,9 @@ else
     -language_embedding_type concat \
     -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
     -text_enc_change_residual 2 \
+    -aux_loss_start_from 1 \
+    -sim_loss_type 11 \
+    -aux_loss_weight 0.1 \
     -save_model ${MODEL_DIR}/model \
     -model $TRANSFORMER \
     -batch_size_words $BATCH_SIZE_WORDS \
@@ -228,6 +238,7 @@ else
     -normalize_gradient \
     -warmup_steps 8000 \
     -tie_weights \
+    -join_embedding \
     -seed 8877 \
     -log_interval 1000 \
     -update_frequency -1 \

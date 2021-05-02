@@ -9,7 +9,7 @@ import time, datetime
 from onmt.train_utils.trainer import XETrainer
 from onmt.data.mmap_indexed_dataset import MMapIndexedDataset
 from onmt.data.scp_dataset import SCPIndexDataset
-from onmt.modules.loss import NMTLossFunc, NMTAndCTCLossFunc
+from onmt.modules.loss import NMTLossFunc, NMTAndCTCLossFunc, MSEEncoderLoss, CosineEncoderLoss
 from onmt.model_factory import build_model, optimize_model
 from onmt.bayesian_factory import build_model as build_bayesian_model
 from options import make_parser
@@ -68,11 +68,19 @@ def main():
             additional_data_index = 0
             for (additional_data_file, additional_data_format) in zip(additional_data_files, additional_data_formats):
                 print('Loading additional data', additional_data_index)
-                additional_data_index = additional_data_index + 1
-
+                if additional_data_index == 0 and opt.sim_loss_type is not None:
+                    # If auxilary loss is used, text and audio sentences must be aligned, so the data order and
+                    # batches of ASR and MT must be the same
+                    # (Assuming main data is ASR, additional data 0 is MT)
+                    order = train_data.order
+                    batches = train_data.batches
+                else:
+                    order = None
+                    batches = None
                 dicts_additional, train_data_additional, valid_data_additional = load_data(
                     data_path=additional_data_file,
-                    data_format=additional_data_format)
+                    data_format=additional_data_format,
+                    order=order, batches=batches)
 
                 # The additional data must have the same tgt vocab as the data
                 assert dicts['tgt'].size() == dicts_additional['tgt'].size()
@@ -92,6 +100,8 @@ def main():
                 # Store this data to the list
                 additional_data.append({'dicts': dicts_additional, 'train_data': train_data_additional,
                                         'valid_data': valid_data_additional})
+
+                additional_data_index = additional_data_index + 1
     else:
         if opt.additional_data != 'none':
             raise NotImplementedError("Multiple dataset with additional data (both text and audio as input) not "
@@ -307,6 +317,35 @@ def main():
 
         loss_function = FusionLoss(dicts['tgt'].size(), label_smoothing=opt.label_smoothing)
 
+    if opt.sim_loss_type:
+        log_str_aux_loss = "* Using auxilary loss: "
+        sim_loss_input_type = opt.sim_loss_type % 10
+        sim_loss_func_type = opt.sim_loss_type // 10
+        aux_loss_weight = opt.aux_loss_weight
+
+        if sim_loss_func_type == 1:
+            aux_loss_function = MSEEncoderLoss(input_type=sim_loss_input_type, weight=aux_loss_weight)
+            log_str_aux_loss = log_str_aux_loss + "squared error of "
+        elif sim_loss_func_type == 2:
+            aux_loss_function = CosineEncoderLoss(input_type=sim_loss_input_type, weight=aux_loss_weight)
+            log_str_aux_loss = log_str_aux_loss + "cosine distance of "
+        else:
+            raise NotImplementedError
+
+        if sim_loss_input_type == 1:
+            log_str_aux_loss = log_str_aux_loss + "meanpool over time"
+        elif sim_loss_input_type == 2:
+            log_str_aux_loss = log_str_aux_loss + "by position"
+        elif sim_loss_input_type == 3:
+            log_str_aux_loss = log_str_aux_loss + "maxpool over time"
+        elif sim_loss_input_type == 4:
+            log_str_aux_loss = log_str_aux_loss + "maxpool over feature"
+        else:
+            raise NotImplementedError
+        print(log_str_aux_loss)
+    else:
+        aux_loss_function = None
+
     n_params = sum([p.nelement() for p in model.parameters()])
     print('* number of parameters: %d' % n_params)
 
@@ -317,7 +356,7 @@ def main():
             trainer = BayesianTrainer(model, loss_function, train_data, valid_data, dicts, opt)
 
         else:
-            trainer = XETrainer(model, loss_function, train_data, valid_data, dicts, opt)
+            trainer = XETrainer(model, loss_function, train_data, valid_data, dicts, opt, aux_loss_function=aux_loss_function)
     else:
         from onmt.train_utils.new_trainer import Trainer
         trainer = Trainer(model, loss_function, train_data, valid_data, dicts, opt)
@@ -328,7 +367,7 @@ def main():
     trainer.run(checkpoint=checkpoint)
 
 
-def load_data(data_path, data_format):
+def load_data(data_path, data_format, order=None, batches=None):
     """
     :param data_path: path to the .train.pt file
     :param data_format: bin, raw, scp, scpmem, or mmem
@@ -372,6 +411,7 @@ def load_data(data_path, data_format):
                                       train_src_langs, train_tgt_langs,
                                       batch_size_words=opt.batch_size_words,
                                       data_type=dataset.get("type", "text"), sorting=True,
+                                      order=order, batches=batches,
                                       batch_size_sents=opt.batch_size_sents,
                                       multiplier=opt.batch_size_multiplier,
                                       augment=opt.augment_speech,
@@ -477,6 +517,7 @@ def load_data(data_path, data_format):
                                       train_src_langs, train_tgt_langs,
                                       batch_size_words=opt.batch_size_words,
                                       data_type=data_type, sorting=True,
+                                      order=order, batches=batches,
                                       batch_size_sents=opt.batch_size_sents,
                                       multiplier=opt.batch_size_multiplier,
                                       src_align_right=opt.src_align_right,

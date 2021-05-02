@@ -358,6 +358,18 @@ def make_parser(parser):
                              '1: replace residual by meanpool, 2: remove residual'
                              '(specified for text encoder in the multi-modalities case)')
 
+    parser.add_argument('-aux_loss_start_from', type=int, default=9999,
+                        help='From which epoch will the auxiliary loss start to kick in')
+
+    parser.add_argument('-sim_loss_type', type=int, default=None,
+                        help='Type of auxilliary loss to encourage language similarity.'
+                             '1st digit: 1 (squared error) | 2 (cosine distance)'
+                             '2nd digit: 1 (meanpool over time) | 2 (by position) | 3 (maxpool over time) | '
+                                        '4 (maxpool over feature),')
+
+    parser.add_argument('-aux_loss_weight', type=float, default=0.0,
+                        help='Weight for the auxiliary loss')
+
     # for Reformer
     # parser.add_argument('-lsh_src_attention', action='store_true',
     #                     help='Using LSH for source attention')
@@ -588,5 +600,14 @@ def backward_compatible(opt):
 
     if not hasattr(opt, 'text_enc_change_residual'):
         opt.text_enc_change_residual = None
+
+    if not hasattr(opt, 'aux_loss_start_from'):
+        opt.aux_loss_start_from = 9999
+
+    if not hasattr(opt, 'sim_loss_type'):
+        opt.sim_loss_type = None
+
+    if not hasattr(opt, 'aux_loss_weight'):
+        opt.aux_loss_weight = 0.0
 
     return opt

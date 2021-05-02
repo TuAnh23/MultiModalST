@@ -230,6 +230,7 @@ class Dataset(torch.utils.data.Dataset):
                  batch_size_words=16384,
                  data_type="text", batch_size_sents=128,
                  multiplier=1, sorting=False,
+                 order=None, batches=None,
                  augment=False,
                  src_align_right=False, tgt_align_right=False,
                  verbose=False, cleaning=False, debug=False,
@@ -307,7 +308,7 @@ class Dataset(torch.utils.data.Dataset):
             self.tgt_sizes = None
 
         # sort data to have efficient mini-batching during training
-        if sorting:
+        if sorting and (order is None):
             if verbose:
                 print("* Sorting data ...")
 
@@ -317,6 +318,11 @@ class Dataset(torch.utils.data.Dataset):
                 sorted_order = np.lexsort((self.tgt_sizes, self.src_sizes))
 
             self.order = sorted_order
+
+        if order is not None:
+            if verbose:
+                print("* Use given data order ...")
+            self.order = order
 
         # store data length in numpy for fast query
         if self.tgt is not None and self.src is not None:
@@ -356,12 +362,17 @@ class Dataset(torch.utils.data.Dataset):
         self.pad_count = True
 
         # group samples into mini-batches
-        if verbose:
-            print("* Allocating mini-batches ...")
-        self.batches = allocate_batch(self.order, self.data_lengths,
-                                      self.src_sizes, self.tgt_sizes,
-                                      batch_size_words, batch_size_sents, self.multiplier,
-                                      self.max_src_len, self.max_tgt_len, self.cleaning)
+        if batches is not None:
+            if verbose:
+                print("* Use given mini-batches ...")
+            self.batches = batches
+        else:
+            if verbose:
+                print("* Allocating mini-batches ...")
+            self.batches = allocate_batch(self.order, self.data_lengths,
+                                          self.src_sizes, self.tgt_sizes,
+                                          batch_size_words, batch_size_sents, self.multiplier,
+                                          self.max_src_len, self.max_tgt_len, self.cleaning)
 
         # the second to last mini-batch is likely the largest
         # (the last one can be the remnant after grouping samples which has less than max size)

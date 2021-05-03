@@ -3,20 +3,22 @@
 # Change the below command to point to your own conda execution script
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
-# Manual variable setting
-CONT_FROM_CHECKPOINT=no  # yes or no
+# ------------------------- Manual variable setting -------------------------
+CONT_FROM_CHECKPOINT="no"  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 PREV_SUB_DATA_NAME=one_fourth
-PREV_EXPERIMENT_NAME=mix_en_text_de_${PREV_SUB_DATA_NAME}_asr_mt_SE_DEPI
+PREV_EXPERIMENT_NAME=mix_en_text_de_${PREV_SUB_DATA_NAME}_asr_mt_SE_AuxLoss
 SUB_DATA_NAME=dummy
-# Add the name of the task to continue fine tunning with
+# EXPERIMENT_NAME contains fine tuning task name (i.e. st, all)
 # 'st': continue training with ST data
 # 'all': continue training with ST, ASR, MT data
 EXPERIMENT_NAME=${PREV_EXPERIMENT_NAME}_FT_st_${SUB_DATA_NAME}
+# AuxLoss not yet supported with fine tuning setting
+# Use the same vocab (pay attention to JoinEmbedding) and feature setting as prev model
+# ------------------------- End of manual variable setting -------------------------
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
-EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks 
-# End of manual variable setting
+EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks
 SRC_MODALITY=mix
 TGT_MODALITY=text
 TGT_EXTENSION=txt
@@ -155,96 +157,64 @@ BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
 DEATH_RATE=0.0
 SHARE_ENCODERS="all_text_enc"
-# Run training process
-if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
-    python -u train.py -data $DATA \
-    -load_from $LATEST_CHECKPONTED \
-    -data_format $DATA_FORMAT \
-    -additional_data $ADDITIONAL_DATA \
-    -additional_data_format $ADDITIONAL_DATA_FORMAT \
-    -data_ratio $DATA_RATIO \
-    -use_language_embedding \
-    -language_embedding_type concat \
-    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
-    -text_enc_change_residual 2 \
-    -save_model ${MODEL_DIR}/model \
-    -model $TRANSFORMER \
-    -batch_size_words $BATCH_SIZE_WORDS \
-    -batch_size_update 24568 \
-    -batch_size_sents $BATCH_SIZE_SENT \
-    -batch_size_multiplier 8 \
-    -encoder_type $SRC_MODALITY \
-    -checkpointing 0 \
-    -input_size $input_size \
-    -concat $CONCAT \
-    -layers $LAYER \
-    -audio_encoder_layers $AUDIO_ENC_LAYERS \
-    -text_encoder_layers $TEXT_ENC_LAYERS \
-    -share_encoders_parameter $SHARE_ENCODERS \
-    -death_rate $DEATH_RATE \
-    -model_size $size \
-    -inner_size $innersize \
-    -n_heads 8 \
-    -dropout 0.2 \
-    -attn_dropout 0.2 \
-    -word_dropout 0.1 \
-    -emb_dropout 0.2 \
-    -label_smoothing 0.1 \
-    -epochs $N_EPOCHS \
-    $optim_str \
-    -learning_rate $LR \
-    -normalize_gradient \
-    -warmup_steps 8000 \
-    -tie_weights \
-    -seed 8877 \
-    -log_interval 1000 \
-    -update_frequency -1 \
-    -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
-else
-    python -u train.py -data $DATA \
-    -load_from $LATEST_CHECKPONTED \
-    -data_format $DATA_FORMAT \
-    -additional_data $ADDITIONAL_DATA \
-    -additional_data_format $ADDITIONAL_DATA_FORMAT \
-    -data_ratio $DATA_RATIO \
-    -use_language_embedding \
-    -language_embedding_type concat \
-    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
-    -text_enc_change_residual 2 \
-    -save_model ${MODEL_DIR}/model \
-    -model $TRANSFORMER \
-    -batch_size_words $BATCH_SIZE_WORDS \
-    -batch_size_update 24568 \
-    -batch_size_sents $BATCH_SIZE_SENT \
-    -batch_size_multiplier 8 \
-    -encoder_type $SRC_MODALITY \
-    -checkpointing 0 \
-    -input_size $input_size \
-    -concat $CONCAT \
-    -layers $LAYER \
-    -audio_encoder_layers $AUDIO_ENC_LAYERS \
-    -text_encoder_layers $TEXT_ENC_LAYERS \
-    -share_encoders_parameter $SHARE_ENCODERS \
-    -death_rate $DEATH_RATE \
-    -model_size $size \
-    -inner_size $innersize \
-    -n_heads 8 \
-    -dropout 0.2 \
-    -attn_dropout 0.2 \
-    -word_dropout 0.1 \
-    -emb_dropout 0.2 \
-    -label_smoothing 0.1 \
-    -epochs $N_EPOCHS \
-    $optim_str \
-    -learning_rate $LR \
-    -normalize_gradient \
-    -warmup_steps 8000 \
-    -tie_weights \
-    -seed 8877 \
-    -log_interval 1000 \
-    -update_frequency -1 \
-    -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
+# Setting for share encoders (SE)
+if [[ "$PREV_EXPERIMENT_NAME" = *"SE"* ]]; then
+    share_encoder_str="-share_encoders_parameter ${SHARE_ENCODERS}"
 fi
+# Setting for disentangling positional info (DEPI)
+if [[ "$PREV_EXPERIMENT_NAME" = *"DEPI"* ]]; then
+    text_enc_depi_layer_str="-text_enc_change_residual_at $((TEXT_ENC_LAYERS/2))"
+    text_enc_depi_type_str="-text_enc_change_residual 2"
+fi
+# Setting for JoinEmbedding
+if [[ "$PREV_EXPERIMENT_NAME" = *"JoinEmbedding"* ]]; then
+    join_embedding_str="-join_embedding"
+fi
+# Run training process
+python -u train.py -data $DATA \
+-load_from $LATEST_CHECKPONTED \
+-data_format $DATA_FORMAT \
+-additional_data $ADDITIONAL_DATA \
+-additional_data_format $ADDITIONAL_DATA_FORMAT \
+-data_ratio $DATA_RATIO \
+-use_language_embedding \
+-language_embedding_type concat \
+$text_enc_depi_layer_str \
+$text_enc_depi_type_str \
+-save_model ${MODEL_DIR}/model \
+-model $TRANSFORMER \
+-batch_size_words $BATCH_SIZE_WORDS \
+-batch_size_update 24568 \
+-batch_size_sents $BATCH_SIZE_SENT \
+-batch_size_multiplier 8 \
+-encoder_type $SRC_MODALITY \
+-checkpointing 0 \
+-input_size $input_size \
+-concat $CONCAT \
+-layers $LAYER \
+-audio_encoder_layers $AUDIO_ENC_LAYERS \
+-text_encoder_layers $TEXT_ENC_LAYERS \
+$share_encoder_str \
+-death_rate $DEATH_RATE \
+-model_size $size \
+-inner_size $innersize \
+-n_heads 8 \
+-dropout 0.2 \
+-attn_dropout 0.2 \
+-word_dropout 0.1 \
+-emb_dropout 0.2 \
+-label_smoothing 0.1 \
+-epochs $N_EPOCHS \
+$optim_str \
+-learning_rate $LR \
+-normalize_gradient \
+-warmup_steps 8000 \
+-tie_weights \
+$join_embedding_str \
+-seed 8877 \
+-log_interval 1000 \
+-update_frequency -1 \
+-gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
 sed '/.*Validation perplexity.*/{s///;q;}' ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep -e "Train perplexity" -e "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 if [ "${FINAL_MODEL}" = "best" ]; then

@@ -71,6 +71,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   # Set the number of remanining epochs to be run
   CURRENT_EPOCH=`echo $LATEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
   N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
+  cont_checkpoint_str="-load_from ${LATEST_CHECKPONTED}"
 else
   # Delete old models and log files if any and create new ones
   if [ -d ${MODEL_DIR} ]; then
@@ -114,45 +115,11 @@ elif [ "$SRC_MODALITY" = "text" ]; then
   BATCH_SIZE_WORDS=3584
   DEATH_RATE=0.0
 fi
-if [ $CONT_FROM_CHECKPOINT == 'yes' ]; then
-  python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
-          -data_format $FORMAT \
-          -save_model ${MODEL_DIR}/model \
-          -load_from $LATEST_CHECKPONTED \
-          -model $TRANSFORMER \
-          -batch_size_words $BATCH_SIZE_WORDS \
-          -batch_size_update 24568 \
-          -batch_size_sents 9999 \
-          -batch_size_multiplier 8 \
-          -encoder_type $SRC_MODALITY \
-          -checkpointing 0 \
-          -input_size $input_size \
-          -concat $CONCAT \
-          -layers $LAYER \
-          -encoder_layers $ENC_LAYER \
-          -death_rate $DEATH_RATE \
-          -model_size $size \
-          -inner_size $innersize \
-          -n_heads 8 \
-          -dropout 0.2 \
-          -attn_dropout 0.2 \
-          -word_dropout 0.1 \
-          -emb_dropout 0.2 \
-          -label_smoothing 0.1 \
-          -epochs $N_EPOCHS \
-          $optim_str \
-          -learning_rate $LR \
-          -normalize_gradient \
-          -warmup_steps 8000 \
-          -tie_weights \
-          -seed 8877 \
-          -log_interval 1000 \
-          -update_frequency -1 \
-          -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
-else
-  python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
+# Run training process
+python -u train.py -data ${DATA_DIR}/${SUB_DIR}/data \
         -data_format $FORMAT \
         -save_model ${MODEL_DIR}/model \
+        $cont_checkpoint_str \
         -model $TRANSFORMER \
         -batch_size_words $BATCH_SIZE_WORDS \
         -batch_size_update 24568 \
@@ -183,7 +150,6 @@ else
         -log_interval 1000 \
         -update_frequency -1 \
         -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
-fi
 sed '/.*Validation perplexity.*/{s///;q;}' ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 if [ "${FINAL_MODEL}" = "best" ]; then

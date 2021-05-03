@@ -3,18 +3,16 @@
 # Change the below command to point to your own conda execution script
 source /c/Users/TuAhnDinh/Anaconda3/etc/profile.d/conda.sh
 conda activate BachelorThesisST
-# Manual variable setting
-CONT_FROM_CHECKPOINT=no  # yes or no
+# ------------------------- Manual variable setting -------------------------
+CONT_FROM_CHECKPOINT="no"  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 SUB_DATA_NAME=one_fourth
-# Add task name (i.e. asr, mt, st) to the end of EXPERIMENT_NAME
-# DEPI: disentangling positional info
-# SE: share encoders
-EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_DEPI_SE_JoinEmbedding_AuxLoss
+# EXPERIMENT_NAME contains task name (i.e. asr, mt, st) and feature type (DEPI, SE, JoinEmbedding, AuxLoss)
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_SE_JoinEmbedding_AuxLoss
+# ------------------------- End of manual variable setting -------------------------
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
 EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks
-# End of manual variable setting
 SRC_MODALITY=mix
 TGT_MODALITY=text
 TGT_EXTENSION=txt
@@ -108,6 +106,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   # Set the number of remanining epochs to be run
   CURRENT_EPOCH=`echo $LATEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
   N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
+  cont_checkpoint_str="-load_from ${LATEST_CHECKPONTED}"
 else
   # Delete old models and log files if any and create new ones
   if [ -d ${MODEL_DIR} ]; then
@@ -147,103 +146,73 @@ BATCH_SIZE_WORDS=2048
 BATCH_SIZE_SENT=9999
 DEATH_RATE=0.0
 SHARE_ENCODERS="all_text_enc"
-# Run training process
-if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
-    python -u train.py -data $DATA \
-    -load_from $LATEST_CHECKPONTED \
-    -data_format $DATA_FORMAT \
-    -additional_data $ADDITIONAL_DATA \
-    -additional_data_format $ADDITIONAL_DATA_FORMAT \
-    -data_ratio $DATA_RATIO \
-    -use_language_embedding \
-    -language_embedding_type concat \
-    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
-    -text_enc_change_residual 2 \
-    -aux_loss_start_from 1 \
-    -sim_loss_type 11 \
-    -aux_loss_weight 0.1 \
-    -save_model ${MODEL_DIR}/model \
-    -model $TRANSFORMER \
-    -batch_size_words $BATCH_SIZE_WORDS \
-    -batch_size_update 24568 \
-    -batch_size_sents $BATCH_SIZE_SENT \
-    -batch_size_multiplier 8 \
-    -encoder_type $SRC_MODALITY \
-    -checkpointing 0 \
-    -input_size $input_size \
-    -concat $CONCAT \
-    -layers $LAYER \
-    -audio_encoder_layers $AUDIO_ENC_LAYERS \
-    -text_encoder_layers $TEXT_ENC_LAYERS \
-    -share_encoders_parameter $SHARE_ENCODERS \
-    -death_rate $DEATH_RATE \
-    -model_size $size \
-    -inner_size $innersize \
-    -n_heads 8 \
-    -dropout 0.2 \
-    -attn_dropout 0.2 \
-    -word_dropout 0.1 \
-    -emb_dropout 0.2 \
-    -label_smoothing 0.1 \
-    -epochs $N_EPOCHS \
-    $optim_str \
-    -learning_rate $LR \
-    -normalize_gradient \
-    -warmup_steps 8000 \
-    -tie_weights \
-    -join_embedding \
-    -seed 8877 \
-    -log_interval 1000 \
-    -update_frequency -1 \
-    -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
-else
-    python -u train.py -data $DATA \
-    -data_format $DATA_FORMAT \
-    -additional_data $ADDITIONAL_DATA \
-    -additional_data_format $ADDITIONAL_DATA_FORMAT \
-    -data_ratio $DATA_RATIO \
-    -use_language_embedding \
-    -language_embedding_type concat \
-    -text_enc_change_residual_at $((TEXT_ENC_LAYERS/2)) \
-    -text_enc_change_residual 2 \
-    -aux_loss_start_from 1 \
-    -sim_loss_type 11 \
-    -aux_loss_weight 0.1 \
-    -save_model ${MODEL_DIR}/model \
-    -model $TRANSFORMER \
-    -batch_size_words $BATCH_SIZE_WORDS \
-    -batch_size_update 24568 \
-    -batch_size_sents $BATCH_SIZE_SENT \
-    -batch_size_multiplier 8 \
-    -encoder_type $SRC_MODALITY \
-    -checkpointing 0 \
-    -input_size $input_size \
-    -concat $CONCAT \
-    -layers $LAYER \
-    -audio_encoder_layers $AUDIO_ENC_LAYERS \
-    -text_encoder_layers $TEXT_ENC_LAYERS \
-    -share_encoders_parameter $SHARE_ENCODERS \
-    -death_rate $DEATH_RATE \
-    -model_size $size \
-    -inner_size $innersize \
-    -n_heads 8 \
-    -dropout 0.2 \
-    -attn_dropout 0.2 \
-    -word_dropout 0.1 \
-    -emb_dropout 0.2 \
-    -label_smoothing 0.1 \
-    -epochs $N_EPOCHS \
-    $optim_str \
-    -learning_rate $LR \
-    -normalize_gradient \
-    -warmup_steps 8000 \
-    -tie_weights \
-    -join_embedding \
-    -seed 8877 \
-    -log_interval 1000 \
-    -update_frequency -1 \
-    -gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
+# Setting for share encoders (SE)
+if [[ "$EXPERIMENT_NAME" = *"SE"* ]]; then
+    share_encoder_str="-share_encoders_parameter ${SHARE_ENCODERS}"
 fi
+# Setting for disentangling positional info (DEPI)
+if [[ "$EXPERIMENT_NAME" = *"DEPI"* ]]; then
+    text_enc_depi_layer_str="-text_enc_change_residual_at $((TEXT_ENC_LAYERS/2))"
+    text_enc_depi_type_str="-text_enc_change_residual 2"
+fi
+# Setting for JoinEmbedding
+if [[ "$EXPERIMENT_NAME" = *"JoinEmbedding"* ]]; then
+    join_embedding_str="-join_embedding"
+fi
+# Setting for AuxLoss
+if [[ "$EXPERIMENT_NAME" = *"AuxLoss"* ]]; then
+  aux_loss_start_from_str="-aux_loss_start_from 1"
+  sim_loss_type_str="-sim_loss_type 11"
+  aux_loss_weight_str="-aux_loss_weight 0.1"
+fi
+# Run training process
+python -u train.py -data $DATA \
+$cont_checkpoint_str \
+-data_format $DATA_FORMAT \
+-additional_data $ADDITIONAL_DATA \
+-additional_data_format $ADDITIONAL_DATA_FORMAT \
+-data_ratio $DATA_RATIO \
+-use_language_embedding \
+-language_embedding_type concat \
+$text_enc_depi_layer_str \
+$text_enc_depi_type_str \
+$aux_loss_start_from_str \
+$sim_loss_type_str \
+$aux_loss_weight_str \
+-save_model ${MODEL_DIR}/model \
+-model $TRANSFORMER \
+-batch_size_words $BATCH_SIZE_WORDS \
+-batch_size_update 24568 \
+-batch_size_sents $BATCH_SIZE_SENT \
+-batch_size_multiplier 8 \
+-encoder_type $SRC_MODALITY \
+-checkpointing 0 \
+-input_size $input_size \
+-concat $CONCAT \
+-layers $LAYER \
+-audio_encoder_layers $AUDIO_ENC_LAYERS \
+-text_encoder_layers $TEXT_ENC_LAYERS \
+$share_encoder_str \
+-death_rate $DEATH_RATE \
+-model_size $size \
+-inner_size $innersize \
+-n_heads 8 \
+-dropout 0.2 \
+-attn_dropout 0.2 \
+-word_dropout 0.1 \
+-emb_dropout 0.2 \
+-label_smoothing 0.1 \
+-epochs $N_EPOCHS \
+$optim_str \
+-learning_rate $LR \
+-normalize_gradient \
+-warmup_steps 8000 \
+-tie_weights \
+$join_embedding_str \
+-seed 8877 \
+-log_interval 1000 \
+-update_frequency -1 \
+-gpus 0 | tee -a ${EXPERIMENT_DIR}/train.log
 sed '/.*Validation perplexity.*/{s///;q;}' ${EXPERIMENT_DIR}/train.log > ${EXPERIMENT_DIR}/shortened_train.log
 grep -e "Train perplexity" -e "Validation perplexity" ${EXPERIMENT_DIR}/train.log >> ${EXPERIMENT_DIR}/shortened_train.log
 if [ "${FINAL_MODEL}" = "best" ]; then

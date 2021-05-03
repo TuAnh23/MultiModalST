@@ -698,6 +698,7 @@ class XETrainer(BaseTrainer):
                         # Make sure text and audio sentences are aligned
                         assert len(batch.src_lengths) == len(audio_tgt_lengths)
                         for len_i in range(0, len(batch.src_lengths)):
+                            # Tgt sentences has 2 additional tokens: bos and eos
                             assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
 
                         # Calculate the difference between the text and audio

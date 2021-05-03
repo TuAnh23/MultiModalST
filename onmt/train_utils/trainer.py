@@ -511,10 +511,7 @@ class XETrainer(BaseTrainer):
 
         if self.aux_loss_function is not None:
             # If auxilary loss is used, make sure ASR and MT data has aligned batches
-            # For now it does not support other additional data (other than ASR and MT)
-            assert len(self.additional_data_ratio) == 2
-            assert self.additional_data_ratio[0] == 1
-            assert self.additional_data_ratio[1] == 1
+            assert self.additional_data_ratio[0] == self.additional_data_ratio[1]
 
         if resume:
             data_iterator.load_state_dict(itr_progress)
@@ -578,7 +575,11 @@ class XETrainer(BaseTrainer):
             # Stores the target lengths of the audio batch to make sure it is identical with the source length in the
             # text batch (i.e. make sure audio and text sentences are aligned)
             audio_tgt_lengths = None
-
+            # A variable to distinguish MT batch from other additional batches
+            mt_batch = False
+            # A variable to keep track of when we should skip calculating aux loss (i.e. when the graph is updated
+            # and the previous audio output is lost)
+            skip_aux_loss = False
             aux_loss_data = 0
 
         update_flag = False
@@ -595,21 +596,45 @@ class XETrainer(BaseTrainer):
                 batch = waiting_batches.pop(0)
                 run_waiting_batch = True
 
-            if not (run_waiting_batch or data_iterator.end_of_epoch()):
-                # Add batches of additional data to the wait list
-                if opt.additional_data != 'none' and i % self.additional_data_ratio[0] == 0:
-                    for j in range(len(self.additional_data_train)):
-                        for k in range(0, self.additional_data_ratio[j + 1]):
-                            if additional_data_iterators[j].end_of_epoch():
-                                additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
-                                                                                      seed=self.opt.seed,
-                                                                                      num_workers=opt.num_workers,
-                                                                                      epoch=epoch,
-                                                                                      buffer_size=opt.buffer_size)
-                                additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(shuffle=True,
-                                                                                                            pin_memory=opt.pin_memory)
-                            waiting_batches.append(next(additional_epoch_iterators[j]))
-                            additional_data_i[j] = additional_data_i[j] + 1
+            # Add batches of additional data to the wait list
+            if self.aux_loss_function is None:
+                if not (run_waiting_batch or data_iterator.end_of_epoch()):
+                    if opt.additional_data != 'none' and i % self.additional_data_ratio[0] == 0:
+                        for j in range(len(self.additional_data_train)):
+                            for k in range(0, self.additional_data_ratio[j + 1]):
+                                if additional_data_iterators[j].end_of_epoch():
+                                    additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
+                                                                                          seed=self.opt.seed,
+                                                                                          num_workers=opt.num_workers,
+                                                                                          epoch=epoch,
+                                                                                          buffer_size=opt.buffer_size)
+                                    additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(shuffle=True,
+                                                                                                                pin_memory=opt.pin_memory)
+                                waiting_batches.append(next(additional_epoch_iterators[j]))
+                                additional_data_i[j] = additional_data_i[j] + 1
+            else:
+                # If using auxilary loss:
+                # Use a different strategy for ordering the batches so that one batch of ASR follows by one batch of MT
+                if not (run_waiting_batch or data_iterator.end_of_epoch()):
+                    if opt.additional_data != 'none':
+                        # Always add a follow up MT batch
+                        waiting_batches.append(next(additional_epoch_iterators[0]))
+                        additional_data_i[0] = additional_data_i[0] + 1
+                        mt_batch = True
+                        # Whether to add the other additional batches depends on the specified ratio
+                        if i % self.additional_data_ratio[0] == 0:
+                            for j in range(1, len(self.additional_data_train)):
+                                for k in range(0, self.additional_data_ratio[j + 1]):
+                                    if additional_data_iterators[j].end_of_epoch():
+                                        additional_data_iterators[j] = generate_data_iterator(self.additional_data_train[j],
+                                                                                              seed=self.opt.seed,
+                                                                                              num_workers=opt.num_workers,
+                                                                                              epoch=epoch,
+                                                                                              buffer_size=opt.buffer_size)
+                                        additional_epoch_iterators[j] = additional_data_iterators[j].next_epoch_itr(shuffle=True,
+                                                                                                                    pin_memory=opt.pin_memory)
+                                    waiting_batches.append(next(additional_epoch_iterators[j]))
+                                    additional_data_i[j] = additional_data_i[j] + 1
 
             if isinstance(batch, list) and self.n_gpus == 1:
                 batch = batch[0]
@@ -681,40 +706,47 @@ class XETrainer(BaseTrainer):
                 full_loss.div_(grad_scaler)
 
                 use_aux_loss = epoch >= self.opt.aux_loss_start_from
+
+                if use_aux_loss and self.aux_loss_function is not None:
+                    # retain_graph if: (1) not at the end of epoch, (2) ASR or not-skipped MT batch
+                    retain_graph = (not data_iterator.end_of_epoch())\
+                                   and ((not run_waiting_batch) or (run_waiting_batch and mt_batch and not skip_aux_loss))
+                else:
+                    retain_graph = None
+
                 if self.cuda:
                     with amp.scale_loss(full_loss, optimizer) as scaled_loss:
-                        scaled_loss.backward(retain_graph=
-                                             (use_aux_loss and self.aux_loss_function is not None)
-                                             and (not data_iterator.end_of_epoch())
-                                             and not (update_flag and run_waiting_batch))  # The graph is updated, so we cannot use the stored audio output
+                        scaled_loss.backward(retain_graph=retain_graph)
                 else:
-                    full_loss.backward(retain_graph=
-                                       (use_aux_loss and self.aux_loss_function is not None)
-                                       and (not data_iterator.end_of_epoch())
-                                       and not (update_flag and run_waiting_batch))  # The graph is updated, so we cannot use the stored audio output
+                    full_loss.backward(retain_graph=retain_graph)
 
                 if use_aux_loss and (self.aux_loss_function is not None):
-                    if run_waiting_batch and not update_flag:
-                        # Make sure text and audio sentences are aligned
-                        assert len(batch.src_lengths) == len(audio_tgt_lengths)
-                        for len_i in range(0, len(batch.src_lengths)):
-                            # Tgt sentences has 2 additional tokens: bos and eos
-                            assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
+                    if run_waiting_batch and mt_batch:
+                        if not skip_aux_loss:
+                            # Make sure text and audio sentences are aligned
+                            assert len(batch.src_lengths) == len(audio_tgt_lengths)
+                            for len_i in range(0, len(batch.src_lengths)):
+                                # Tgt sentences has 2 additional tokens: bos and eos
+                                assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
 
-                        # Calculate the difference between the text and audio
-                        aux_loss_dict = self.aux_loss_function(audio_context,
-                                                               outputs['context'],
-                                                               audio_src_mask,
-                                                               outputs['src_mask'])
-                        aux_loss_data = aux_loss_dict['data']
-                        loss = aux_loss_dict['loss'].div_(
-                            grad_scaler)  # a little trick to avoid gradient overflow with fp16
+                            # Calculate the difference between the text and audio
+                            aux_loss_dict = self.aux_loss_function(audio_context,
+                                                                   outputs['context'],
+                                                                   audio_src_mask,
+                                                                   outputs['src_mask'])
+                            aux_loss_data = aux_loss_dict['data']
+                            loss = aux_loss_dict['loss'].div_(
+                                grad_scaler)  # a little trick to avoid gradient overflow with fp16
 
-                        if self.cuda:
-                            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                                scaled_loss.backward()
+                            if self.cuda:
+                                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                                    scaled_loss.backward()
+                            else:
+                                loss.backward()
                         else:
-                            loss.backward()
+                            skip_aux_loss = False
+
+                        mt_batch = False
 
                     elif not run_waiting_batch:
                         audio_context = outputs['context']  # .clone()
@@ -767,6 +799,12 @@ class XETrainer(BaseTrainer):
                     update_flag = True
 
                 if update_flag:
+                    if use_aux_loss and self.aux_loss_function is not None:
+                        if not run_waiting_batch:
+                            # Skip the next aux loss because when we update the graph, we cannot use the previously
+                            # stored audio encoder output anymore
+                            skip_aux_loss = True
+
                     # accumulated gradient case, in this case the update frequency
                     grad_denom = 1 / grad_scaler
                     if self.opt.normalize_gradient:

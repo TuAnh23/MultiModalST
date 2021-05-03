@@ -365,7 +365,9 @@ def make_parser(parser):
                         help='Type of auxilliary loss to encourage language similarity.'
                              '1st digit: 1 (squared error) | 2 (cosine distance)'
                              '2nd digit: 1 (meanpool over time) | 2 (by position) | 3 (maxpool over time) | '
-                                        '4 (maxpool over feature),')
+                                        '4 (maxpool over feature),'
+                             'NOTE: aux loss option for multi-modalities case assume main data is ASR, additional '
+                             'data 0 is the aligned MT.')
 
     parser.add_argument('-aux_loss_weight', type=float, default=0.0,
                         help='Weight for the auxiliary loss')

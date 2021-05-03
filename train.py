@@ -317,7 +317,7 @@ def main():
 
         loss_function = FusionLoss(dicts['tgt'].size(), label_smoothing=opt.label_smoothing)
 
-    if opt.sim_loss_type:
+    if opt.sim_loss_type is not None:
         log_str_aux_loss = "* Using auxilary loss: "
         sim_loss_input_type = opt.sim_loss_type % 10
         sim_loss_func_type = opt.sim_loss_type // 10
@@ -343,6 +343,9 @@ def main():
         else:
             raise NotImplementedError
         print(log_str_aux_loss)
+
+        if opt.additional_data != 'none':
+            print('Assuming main data is ASR, additional data 0 is the aligned MT')
     else:
         aux_loss_function = None
 

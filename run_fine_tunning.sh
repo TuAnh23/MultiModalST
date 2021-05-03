@@ -14,7 +14,6 @@ SUB_DATA_NAME=dummy
 # 'st': continue training with ST data
 # 'all': continue training with ST, ASR, MT data
 EXPERIMENT_NAME=${PREV_EXPERIMENT_NAME}_FT_st_${SUB_DATA_NAME}
-# AuxLoss not yet supported with fine tuning setting
 # Use the same vocab (pay attention to JoinEmbedding) and feature setting as prev model
 # ------------------------- End of manual variable setting -------------------------
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
@@ -134,14 +133,14 @@ echo "Training model..."
 # Define some argument values
 # NOTE, the main data should have src audio, not text, since with the same number of sentences, src audio would need
 # more batches, and we want all data to be covered
-DATA=${DATA_DIR}/${SUB_DIR}/st_data
+DATA=${DATA_DIR}/${SUB_DIR}/asr_data
 DATA_FORMAT=scp
 if [[ "$EXPERIMENT_NAME" = *"all"* ]]; then
-  ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/asr_data;${DATA_DIR}/${SUB_DIR}/mt_data"
+  ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${DATA_DIR}/${SUB_DIR}/st_data"
 else
   ADDITIONAL_DATA="none"
 fi
-ADDITIONAL_DATA_FORMAT="scp;mmem"
+ADDITIONAL_DATA_FORMAT="mmem;scp"
 DATA_RATIO="-1"
 input_size=$((80*$CONCAT))
 LAYER=12
@@ -170,6 +169,12 @@ fi
 if [[ "$PREV_EXPERIMENT_NAME" = *"JoinEmbedding"* ]]; then
     join_embedding_str="-join_embedding"
 fi
+# Setting for AuxLoss
+if [[ "$PREV_EXPERIMENT_NAME" = *"AuxLoss"* ]] && [[ "$EXPERIMENT_NAME" = *"all"* ]]; then
+  aux_loss_start_from_str="-aux_loss_start_from 1"
+  sim_loss_type_str="-sim_loss_type 11"
+  aux_loss_weight_str="-aux_loss_weight 0.1"
+fi
 # Run training process
 python -u train.py -data $DATA \
 -load_from $LATEST_CHECKPONTED \
@@ -181,6 +186,9 @@ python -u train.py -data $DATA \
 -language_embedding_type concat \
 $text_enc_depi_layer_str \
 $text_enc_depi_type_str \
+$aux_loss_start_from_str \
+$sim_loss_type_str \
+$aux_loss_weight_str \
 -save_model ${MODEL_DIR}/model \
 -model $TRANSFORMER \
 -batch_size_words $BATCH_SIZE_WORDS \

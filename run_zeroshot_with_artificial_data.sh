@@ -9,8 +9,7 @@ SRC_LANG=en
 TGT_LANG=de
 SUB_DATA_NAME=one_fourth
 ARTIFICIAL_SUB_DATA_NAME=dummy
-# EXPERIMENT_NAME contains task name (i.e. asr, mt, ad, st) and feature type (DEPI, SE, JoinEmbedding)
-# AuxLoss not yet supported with artificial data setting
+# EXPERIMENT_NAME contains task name (i.e. asr, mt, ad, st) and feature type (DEPI, SE, JoinEmbedding, AuxLoss)
 # Use the same vocab for src and tgt if JoinEmbedding is turned on
 EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_ad_SE
 # ------------------------- End of manual variable setting -------------------------
@@ -216,6 +215,12 @@ fi
 if [[ "$EXPERIMENT_NAME" = *"JoinEmbedding"* ]]; then
     join_embedding_str="-join_embedding"
 fi
+# Setting for AuxLoss
+if [[ "$EXPERIMENT_NAME" = *"AuxLoss"* ]]; then
+  aux_loss_start_from_str="-aux_loss_start_from 1"
+  sim_loss_type_str="-sim_loss_type 11"
+  aux_loss_weight_str="-aux_loss_weight 0.1"
+fi
 # Run training process
 python -u train.py -data $DATA \
 $cont_checkpoint_str \
@@ -227,6 +232,9 @@ $cont_checkpoint_str \
 -language_embedding_type concat \
 $text_enc_depi_layer_str \
 $text_enc_depi_type_str \
+$aux_loss_start_from_str \
+$sim_loss_type_str \
+$aux_loss_weight_str \
 -save_model ${MODEL_DIR}/model \
 -model $TRANSFORMER \
 -batch_size_words $BATCH_SIZE_WORDS \

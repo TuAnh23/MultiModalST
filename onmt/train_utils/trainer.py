@@ -540,7 +540,7 @@ class XETrainer(BaseTrainer):
         report_loss, report_tgt_words = 0, 0
         report_src_words = 0
         report_ctc_loss = 0
-        report_rec_loss, report_rev_loss, report_mirror_loss = 0, 0, 0
+        report_rec_loss, report_rev_loss, report_mirror_loss, report_aux_sim_loss = 0, 0, 0, 0
         start = time.time()
         n_samples = len(epoch_iterator)
 
@@ -580,7 +580,6 @@ class XETrainer(BaseTrainer):
             # A variable to keep track of when we should skip calculating aux loss (i.e. when the graph is updated
             # and the previous audio output is lost)
             skip_aux_loss = False
-            aux_loss_data = 0
 
         update_flag = False
         while not data_iterator.end_of_epoch():
@@ -721,6 +720,7 @@ class XETrainer(BaseTrainer):
                     full_loss.backward(retain_graph=retain_graph)
 
                 if use_aux_loss and (self.aux_loss_function is not None):
+                    aux_loss_data = 0
                     if run_waiting_batch and mt_batch:
                         if not skip_aux_loss:
                             # Make sure text and audio sentences are aligned
@@ -867,6 +867,9 @@ class XETrainer(BaseTrainer):
                     report_rev_loss += rev_loss_data
                     report_mirror_loss += mirror_loss_data
 
+                if use_aux_loss and self.aux_loss_function is not None:
+                    report_aux_sim_loss += aux_loss_data
+
                 if (i == 0 or (i % opt.log_interval == -1 % opt.log_interval)) and (not run_waiting_batch):
                     log_string = ("Epoch %2d, %5d/%5d; ; ppl: %6.2f ; " %
                                   (epoch, i + 1, len(data_iterator),
@@ -883,7 +886,7 @@ class XETrainer(BaseTrainer):
                         log_string += (" mir_loss: %6.2f ; " % (report_mirror_loss / report_tgt_words))
 
                     if epoch >= self.opt.aux_loss_start_from:
-                        log_string += (" Aux loss: %6.2f ; " % (aux_loss_data / report_src_words))
+                        log_string += (" Aux loss: %6.2f ; " % (report_aux_sim_loss / report_src_words))
 
                     log_string += ("lr: %.7f ; updates: %7d; " %
                                    (optim.getLearningRate(),
@@ -907,7 +910,7 @@ class XETrainer(BaseTrainer):
 
                     report_loss = 0
                     report_tgt_words, report_src_words = 0, 0
-                    report_rec_loss, report_rev_loss, report_mirror_loss = 0, 0, 0
+                    report_rec_loss, report_rev_loss, report_mirror_loss, report_aux_sim_loss = 0, 0, 0, 0
                     report_ctc_loss = 0
                     start = time.time()
 

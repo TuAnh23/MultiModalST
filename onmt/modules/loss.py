@@ -448,13 +448,12 @@ class MSEEncoderLoss(_Loss):
             masked_context1 = context1.masked_fill(mask1_, 0).type_as(context1)
             masked_context2 = context2.masked_fill(mask2_, 0).type_as(context2)
 
-            # (T, B, H) / (T, B, H)
+            # (1, B, H) / (B, 1) --> (1, B, H)
             input1 = torch.sum(masked_context1, dim=0, keepdim=True) / (1 - mask1_.float()).sum(dim=0)
             input2 = torch.sum(masked_context2, dim=0, keepdim=True) / (1 - mask2_.float()).sum(dim=0)
 
             l2_loss = (input1 - input2) ** 2
-            # multiply by seq length to make aux. loss weight comparable
-            l2_loss = l2_loss.sum() * min(context1.shape[0], context1.shape[1])
+            l2_loss = l2_loss.sum()  # min(context1.shape[0], context1.shape[1]): multiply by seq length to make aux. loss weight comparable
 
         elif self.input_type == 2:  # by position
             # (T1, B, D) --> (min(T1, T2), B, D)
@@ -607,14 +606,13 @@ class CosineEncoderLoss(_Loss):
             masked_context1 = context1.masked_fill(mask1_, 0).type_as(context1)
             masked_context2 = context2.masked_fill(mask2_, 0).type_as(context2)
 
-            # (T, B, H) / (T, B, H) --> (B, H)
+            # (1, B, H) / (B, 1) --> (B, H)
             input1 = (torch.sum(masked_context1, dim=0, keepdim=True) / (1 - mask1_.float()).sum(dim=0)).squeeze(0)
             input2 = (torch.sum(masked_context2, dim=0, keepdim=True) / (1 - mask2_.float()).sum(dim=0)).squeeze(0)
 
             # (B, H) --> (B)
             cos_dist = 1.0 - self.cos_sim(input1, input2)
-            # multiply by seq length to make aux. loss weight comparable
-            cos_loss = cos_dist.sum() * min(context1.shape[0], context1.shape[1])
+            cos_loss = cos_dist.sum()  # * min(context1.shape[0], context1.shape[1]): multiply by seq length to make aux. loss weight comparable
 
         elif self.input_type == 2:  # by position
             # (T1, B, D) --> (min(T1, T2), B, D)

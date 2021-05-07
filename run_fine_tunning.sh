@@ -133,11 +133,13 @@ echo "Training model..."
 # Define some argument values
 # NOTE, the main data should have src audio, not text, since with the same number of sentences, src audio would need
 # more batches, and we want all data to be covered
-DATA=${DATA_DIR}/${SUB_DIR}/asr_data
-DATA_FORMAT=scp
 if [[ "$EXPERIMENT_NAME" = *"all"* ]]; then
+  DATA=${DATA_DIR}/${SUB_DIR}/asr_data
+  DATA_FORMAT=scp
   ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${DATA_DIR}/${SUB_DIR}/st_data"
 else
+  DATA=${DATA_DIR}/${SUB_DIR}/st_data
+  DATA_FORMAT=scp
   ADDITIONAL_DATA="none"
 fi
 ADDITIONAL_DATA_FORMAT="mmem;scp"

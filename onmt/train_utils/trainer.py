@@ -951,7 +951,11 @@ class XETrainer(BaseTrainer):
                     additional_itrs_progresses = None
 
                 resume = True
-                start_epoch = checkpoint['epoch'] if 'epoch' in checkpoint else 1
+                if prec_opt is not None and prec_opt.save_every == -1:
+                    # Last epoch was completed entirely, so we move on to the next epoch
+                    start_epoch = checkpoint['epoch'] + 1 if 'epoch' in checkpoint else 1
+                else:
+                    start_epoch = checkpoint['epoch'] if 'epoch' in checkpoint else 1
                 if start_epoch is None:
                     start_epoch = 1
             else:

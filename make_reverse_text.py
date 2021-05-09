@@ -14,6 +14,8 @@ parser.add_argument('-raw_text_val_path', required=True,
                     help='Path to the raw text for validation.')
 parser.add_argument('-raw_text_test_path', required=True,
                     help='Path to the raw text for testing.')
+parser.add_argument('-sentencepiece_model', required=False, default=None,
+                    help='Path to the sentencepiece model.')
 
 
 def reverse_sentence(line):
@@ -48,25 +50,30 @@ def reverse_transcription(original_file, output_file):
     return output_file
 
 
-def preprocess_reversed_transcription(raw_text_train_path, raw_text_val_path, raw_text_test_path, save_location, lang):
-    # Train the model to do subword unit on the text
-    input_file = raw_text_train_path  # one-sentence-per-line raw corpus file
-    model_prefix = f'{save_location}/{lang}_text'
-    # TODO
-    vocab_size = 8000  # 8000, 16000, or 32000
-    if lang == 'zh-CN' or lang == 'ja':
-        character_coverage = 0.9995  # 0.9995 for languages with rich character set like Japanese or Chinese
+def preprocess_reversed_transcription(raw_text_train_path, raw_text_val_path, raw_text_test_path, save_location,
+                                      lang, given_model=None):
+    if given_model is not None:
+        model_path = given_model
     else:
-        character_coverage = 1  # and 1.0 for other languages with small character set
-    model_type = 'unigram'
-    spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix, vocab_size=vocab_size,
-                                   character_coverage=character_coverage, model_type=model_type)
+        # Train the model to do subword unit on the text
+        input_file = raw_text_train_path  # one-sentence-per-line raw corpus file
+        model_prefix = f'{save_location}/{lang}_text'
+        # TODO
+        vocab_size = 8000  # 8000, 16000, or 32000
+        if lang == 'zh-CN' or lang == 'ja':
+            character_coverage = 0.9995  # 0.9995 for languages with rich character set like Japanese or Chinese
+        else:
+            character_coverage = 1  # and 1.0 for other languages with small character set
+        model_type = 'unigram'
+        spm.SentencePieceTrainer.train(input=input_file, model_prefix=model_prefix, vocab_size=vocab_size,
+                                       character_coverage=character_coverage, model_type=model_type)
+        model_path = f"{model_prefix}.model"
 
-    subword_unit(f"{model_prefix}.model", raw_text_train_path,
+    subword_unit(model_path, raw_text_train_path,
                  f'{save_location}/{lang}_text_train.txt')
-    subword_unit(f"{model_prefix}.model", raw_text_val_path,
+    subword_unit(model_path, raw_text_val_path,
                  f'{save_location}/{lang}_text_val.txt')
-    subword_unit(f"{model_prefix}.model", raw_text_test_path,
+    subword_unit(model_path, raw_text_test_path,
                  f'{save_location}/{lang}_text_test.txt')
 
 
@@ -84,15 +91,23 @@ def subword_unit(model_path, raw_text_file, output_file, output_type=str):
             f.write('\n')
 
 
-def already_exists(save_data, reversed_lang):
-    return os.path.exists(f'{save_data}/{reversed_lang}_text_train.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_text_val.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_text_test.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_train.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_val.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_test.txt') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_text.vocab') \
-           and os.path.exists(f'{save_data}/{reversed_lang}_text.model')
+def already_exists(save_data, reversed_lang, given_model=None):
+    if given_model is None:
+        return os.path.exists(f'{save_data}/{reversed_lang}_text_train.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text_val.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text_test.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_train.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_val.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_test.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text.vocab') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text.model')
+    else:
+        return os.path.exists(f'{save_data}/{reversed_lang}_text_train.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text_val.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_text_test.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_train.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_val.txt') \
+               and os.path.exists(f'{save_data}/{reversed_lang}_raw_text_test.txt')
 
 
 def main():
@@ -104,9 +119,10 @@ def main():
                                                                                  f'/{reversed_lang}_raw_text_val.txt')
     revesed_raw_text_test_path = reverse_transcription(opt.raw_text_test_path, f'{opt.save_data}'
                                                                                  f'/{reversed_lang}_raw_text_test.txt')
-    if not already_exists(opt.save_data, reversed_lang):
+    if not already_exists(opt.save_data, reversed_lang, opt.sentencepiece_model):
         preprocess_reversed_transcription(revesed_raw_text_train_path, revesed_raw_text_val_path,
-                                          revesed_raw_text_test_path, opt.save_data, reversed_lang)
+                                          revesed_raw_text_test_path, opt.save_data, reversed_lang,
+                                          opt.sentencepiece_model)
     else:
         print("Reversed text data already existed.")
 

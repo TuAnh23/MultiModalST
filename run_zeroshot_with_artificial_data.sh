@@ -11,7 +11,7 @@ SUB_DATA_NAME=one_fourth
 ARTIFICIAL_SUB_DATA_NAME=dummy
 # EXPERIMENT_NAME contains task name (i.e. asr, mt, ad, st) and feature type (DEPI, SE, JoinEmbedding, AuxLoss)
 # Use the same vocab for src and tgt if JoinEmbedding is turned on
-EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_ad_SE
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_4ad_SE_JoinEmbedding
 # ------------------------- End of manual variable setting -------------------------
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
 EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks
@@ -27,7 +27,7 @@ else
   AD_DATA_DIR=data/CoVoST2/preprocessed/${ARTIFICIAL_SUB_DATA_NAME}/${SRC_LANG}-${TGT_LANG}
 fi
 CONCAT=4
-SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}_with_ad
+SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}_4ad
 # Preprocess data
 # Create reversed text data
 python make_reverse_text.py -save_data $AD_DATA_DIR \
@@ -35,20 +35,16 @@ python make_reverse_text.py -save_data $AD_DATA_DIR \
     -raw_text_train_path $AD_DATA_DIR/${SRC_LANG}_raw_text_train.txt \
     -raw_text_val_path $AD_DATA_DIR/${SRC_LANG}_raw_text_val.txt \
     -raw_text_test_path $AD_DATA_DIR/${SRC_LANG}_raw_text_test.txt
-TGT_VOCAB=$DATA_DIR/${SUB_DIR}/tgt_vocab
-SRC_VOCAB=$DATA_DIR/${SUB_DIR}/src_vocab
+SRC_TGT_VOCAB=$DATA_DIR/${SUB_DIR}/src_tgt_vocab
 # Preprocess main data
 if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
   echo "Main data in ${SUB_DIR} already preprocessed"
 else
   echo "Preprocessing main data"
   mkdir ${DATA_DIR}/${SUB_DIR}
-  # Create a vocabulary for all text sources
-  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|$AD_DATA_DIR/${SRC_LANG}_text_train.txt" \
-      -out_file $SRC_VOCAB
-  # Create a vocabulary for all text targets (must include artificial target)
+  # Create a vocabulary for all text sources and targets
   python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt|${AD_DATA_DIR}/${ARTIFICIAL_LANG}_text_train.txt" \
-      -out_file $TGT_VOCAB
+      -out_file $SRC_TGT_VOCAB
   # Use the above vocabs while preprocessing
   # Preprocess ASR data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
@@ -68,26 +64,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/asr_data \
       -format scp \
-      -tgt_vocab $TGT_VOCAB
-  # Preprocess ST data
-  python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
-      -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
-      -valid_src $DATA_DIR/${SRC_LANG}_audio_val.scp  \
-      -valid_tgt $DATA_DIR/${TGT_LANG}_text_val.txt  \
-      -train_src_lang ${SRC_LANG} \
-      -train_tgt_lang ${TGT_LANG} \
-      -valid_src_lang ${SRC_LANG} \
-      -valid_tgt_lang ${TGT_LANG} \
-      -all_langs "${SRC_LANG}|${TGT_LANG}|${ARTIFICIAL_LANG}" \
-      -src_seq_length 1024  \
-      -tgt_seq_length 512  \
-      -concat 4 \
-      -asr \
-      -src_type audio \
-      -asr_format scp \
-      -save_data $DATA_DIR/${SUB_DIR}/st_data \
-      -format scp \
-      -tgt_vocab $TGT_VOCAB
+      -tgt_vocab $SRC_TGT_VOCAB
   # Preprocess MT data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -104,8 +81,8 @@ else
       -src_type text \
       -save_data $DATA_DIR/${SUB_DIR}/mt_data \
       -format mmem \
-      -src_vocab $SRC_VOCAB \
-      -tgt_vocab $TGT_VOCAB
+      -src_vocab $SRC_TGT_VOCAB \
+      -tgt_vocab $SRC_TGT_VOCAB
 fi
 # Preprocess artificial data
 if [ -d ${AD_DATA_DIR}/${SUB_DIR} ]; then
@@ -132,8 +109,8 @@ else
       -asr_format scp \
       -save_data $AD_DATA_DIR/${SUB_DIR}/ad_st_data \
       -format scp \
-      -tgt_vocab $TGT_VOCAB
-  # Preprocess artificial MT data (source lang text --> reversed source lang text)
+      -tgt_vocab $SRC_TGT_VOCAB
+  # Preprocess artificial MT1 data (source lang text --> reversed source lang text)
   python preprocess.py -train_src $AD_DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_train.txt  \
       -valid_src $AD_DATA_DIR/${SRC_LANG}_text_val.txt  \
@@ -147,10 +124,46 @@ else
       -tgt_seq_length 512  \
       -concat 1 \
       -src_type text \
-      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_mt_data \
+      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_mt1_data \
       -format mmem \
-      -src_vocab $SRC_VOCAB \
-      -tgt_vocab $TGT_VOCAB
+      -src_vocab $SRC_TGT_VOCAB \
+      -tgt_vocab $SRC_TGT_VOCAB
+  # Preprocess artificial MT2 data (reversed source lang text --> target lang text)
+  python preprocess.py -train_src $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_train.txt  \
+      -train_tgt $AD_DATA_DIR/${TGT_LANG}_text_train.txt  \
+      -valid_src $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_val.txt  \
+      -valid_tgt $AD_DATA_DIR/${TGT_LANG}_text_val.txt  \
+      -train_src_lang ${ARTIFICIAL_LANG} \
+      -train_tgt_lang ${TGT_LANG} \
+      -valid_src_lang ${ARTIFICIAL_LANG} \
+      -valid_tgt_lang ${TGT_LANG} \
+      -all_langs "${SRC_LANG}|${TGT_LANG}|${ARTIFICIAL_LANG}" \
+      -src_seq_length 512  \
+      -tgt_seq_length 512  \
+      -concat 1 \
+      -src_type text \
+      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_mt2_data \
+      -format mmem \
+      -src_vocab $SRC_TGT_VOCAB \
+      -tgt_vocab $SRC_TGT_VOCAB
+  # Preprocess artificial MT3 data (reversed source lang text --> source lang text)
+  python preprocess.py -train_src $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_train.txt  \
+      -train_tgt $AD_DATA_DIR/${SRC_LANG}_text_train.txt  \
+      -valid_src $AD_DATA_DIR/${ARTIFICIAL_LANG}_text_val.txt  \
+      -valid_tgt $AD_DATA_DIR/${SRC_LANG}_text_val.txt  \
+      -train_src_lang ${ARTIFICIAL_LANG} \
+      -train_tgt_lang ${SRC_LANG} \
+      -valid_src_lang ${ARTIFICIAL_LANG} \
+      -valid_tgt_lang ${SRC_LANG} \
+      -all_langs "${SRC_LANG}|${TGT_LANG}|${ARTIFICIAL_LANG}" \
+      -src_seq_length 512  \
+      -tgt_seq_length 512  \
+      -concat 1 \
+      -src_type text \
+      -save_data $AD_DATA_DIR/${SUB_DIR}/ad_mt3_data \
+      -format mmem \
+      -src_vocab $SRC_TGT_VOCAB \
+      -tgt_vocab $SRC_TGT_VOCAB
 fi
 # Whether continue from a checkpoint
 MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}
@@ -185,8 +198,8 @@ echo "Training model..."
 # more batches, and we want all data to be covered
 DATA=${DATA_DIR}/${SUB_DIR}/asr_data
 DATA_FORMAT=scp
-ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${AD_DATA_DIR}/${SUB_DIR}/ad_st_data;${AD_DATA_DIR}/${SUB_DIR}/ad_mt_data"
-ADDITIONAL_DATA_FORMAT="mmem;scp;mmem"
+ADDITIONAL_DATA="${DATA_DIR}/${SUB_DIR}/mt_data;${AD_DATA_DIR}/${SUB_DIR}/ad_st_data;${AD_DATA_DIR}/${SUB_DIR}/ad_mt1_data;${AD_DATA_DIR}/${SUB_DIR}/ad_mt2_data;$AD_DATA_DIR/${SUB_DIR}/ad_mt3_data"
+ADDITIONAL_DATA_FORMAT="mmem;scp;mmem;mmem;mmem"
 DATA_RATIO="-1"
 input_size=$((80*$CONCAT))
 LAYER=12

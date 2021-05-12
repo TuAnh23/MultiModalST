@@ -111,7 +111,7 @@ if [ "$CONT_FROM_CHECKPOINT" = "yes" ]; then
   LATEST_CHECKPONTED=${MODEL_DIR}/$(python finding_latest_model.py -model_dir $MODEL_DIR)
   # Set the number of remanining epochs to be run
   CURRENT_EPOCH=`echo $LATEST_CHECKPONTED | sed -nr 's/.*e(.*).00.pt.*/\1/p'`
-  N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH+1))
+  N_EPOCHS=$(($TOTAL_EPOCHS-$CURRENT_EPOCH))
 else
   # Delete old models and log files if any and create new ones
   if [ -d ${MODEL_DIR} ]; then

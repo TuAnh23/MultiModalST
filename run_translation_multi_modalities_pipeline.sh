@@ -29,12 +29,6 @@ if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
 else
   echo "Preprocessing ${SUB_DIR} data"
   mkdir ${DATA_DIR}/${SUB_DIR}
-  # Create a vocabulary for all text sources
-  python vocab_generator.py -filenames $DATA_DIR/${SRC_LANG}_text_train.txt \
-      -out_file $DATA_DIR/${SUB_DIR}/src_vocab
-  # Create a vocabulary for all text targets
-  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt" \
-      -out_file $DATA_DIR/${SUB_DIR}/tgt_vocab
   # Create a vocabulary for all text sources and targets
   python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt" \
       -out_file $DATA_DIR/${SUB_DIR}/src_tgt_vocab
@@ -58,25 +52,25 @@ else
       -save_data $DATA_DIR/${SUB_DIR}/asr_data \
       -format scp \
       -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
-  # Preprocess ST data
-  python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
-      -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
-      -valid_src $DATA_DIR/${SRC_LANG}_audio_val.scp  \
-      -valid_tgt $DATA_DIR/${TGT_LANG}_text_val.txt  \
-      -train_src_lang ${SRC_LANG} \
-      -train_tgt_lang ${TGT_LANG} \
-      -valid_src_lang ${SRC_LANG} \
-      -valid_tgt_lang ${TGT_LANG} \
-      -all_langs "${SRC_LANG}|${TGT_LANG}" \
-      -src_seq_length 1024  \
-      -tgt_seq_length 512  \
-      -concat 4 \
-      -asr \
-      -src_type audio \
-      -asr_format scp \
-      -save_data $DATA_DIR/${SUB_DIR}/st_data \
-      -format scp \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
+#  # Preprocess ST data
+#  python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
+#      -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
+#      -valid_src $DATA_DIR/${SRC_LANG}_audio_val.scp  \
+#      -valid_tgt $DATA_DIR/${TGT_LANG}_text_val.txt  \
+#      -train_src_lang ${SRC_LANG} \
+#      -train_tgt_lang ${TGT_LANG} \
+#      -valid_src_lang ${SRC_LANG} \
+#      -valid_tgt_lang ${TGT_LANG} \
+#      -all_langs "${SRC_LANG}|${TGT_LANG}" \
+#      -src_seq_length 1024  \
+#      -tgt_seq_length 512  \
+#      -concat 4 \
+#      -asr \
+#      -src_type audio \
+#      -asr_format scp \
+#      -save_data $DATA_DIR/${SUB_DIR}/st_data \
+#      -format scp \
+#      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Preprocess MT data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \

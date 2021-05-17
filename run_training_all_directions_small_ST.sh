@@ -11,7 +11,7 @@ SUB_DATA_NAME=one_fourth
 ST_SUB_DATA_NAME=dummy
 # EXPERIMENT_NAME contains task name (i.e. asr, mt, ad, st) and feature type (DEPI, SE, JoinEmbedding, AuxLoss)
 # Use the same vocab for src and tgt if JoinEmbedding is turned on
-EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_st_SE
+EXPERIMENT_NAME=${SUB_DATA_NAME}_asr_mt_st_SE_JoinEmbedding
 # ------------------------- End of manual variable setting -------------------------
 FINAL_MODEL="best" # if best, evaluate the best model. if latest, evaluate the latest model
 EVALUATE_ADDITIONAL_TASKS="yes" # whether to evaluate on test set for additional tasks
@@ -27,20 +27,16 @@ else
 fi
 CONCAT=4
 SUB_DIR=${SRC_MODALITY}_${SRC_LANG}_${TGT_MODALITY}_${TGT_LANG}_3task_smallST
-TGT_VOCAB=$DATA_DIR/${SUB_DIR}/tgt_vocab
-SRC_VOCAB=$DATA_DIR/${SUB_DIR}/src_vocab
+SRC_TGT_VOCAB=$DATA_DIR/${SUB_DIR}/src_tgt_vocab
 # Preprocess ASR and MT data
 if [ -d ${DATA_DIR}/${SUB_DIR} ]; then
   echo "${SUB_DIR} already preprocessed"
 else
   echo "Preprocessing ${SUB_DIR} data"
   mkdir ${DATA_DIR}/${SUB_DIR}
-  # Create a vocabulary for all text sources
-  python vocab_generator.py -filenames $DATA_DIR/${SRC_LANG}_text_train.txt \
-      -out_file ${SRC_VOCAB}
-  # Create a vocabulary for all text targets
-  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt|${ST_DATA_DIR}/${TGT_LANG}_text_train.txt" \
-      -out_file ${TGT_VOCAB}
+  # Create a vocabulary for all text sources and targets
+  python vocab_generator.py -filenames "$DATA_DIR/${SRC_LANG}_text_train.txt|${DATA_DIR}/${TGT_LANG}_text_train.txt" \
+      -out_file ${SRC_TGT_VOCAB}
   # Use the above vocabs while preprocessing
   # Preprocess ASR data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
@@ -60,7 +56,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/asr_data \
       -format scp \
-      -tgt_vocab ${TGT_VOCAB}
+      -tgt_vocab ${SRC_TGT_VOCAB}
   # Preprocess MT data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -77,8 +73,8 @@ else
       -src_type text \
       -save_data $DATA_DIR/${SUB_DIR}/mt_data \
       -format mmem \
-      -src_vocab ${SRC_VOCAB} \
-      -tgt_vocab ${TGT_VOCAB}
+      -src_vocab ${SRC_TGT_VOCAB} \
+      -tgt_vocab ${SRC_TGT_VOCAB}
 fi
 # Preprocess ST data
 if [ -d ${ST_DATA_DIR}/${SUB_DIR} ]; then
@@ -105,7 +101,7 @@ else
       -asr_format scp \
       -save_data $ST_DATA_DIR/${SUB_DIR}/st_data \
       -format scp \
-      -tgt_vocab ${TGT_VOCAB}
+      -tgt_vocab ${SRC_TGT_VOCAB}
 fi
 # Whether continue from a checkpoint
 MODEL_DIR=models/${SUB_DIR}_${EXPERIMENT_NAME}

@@ -8,7 +8,7 @@ CONT_FROM_CHECKPOINT="no"  # yes or no
 SRC_LANG=en
 TGT_LANG=de
 PREV_SUB_DATA_NAME=one_fourth
-PREV_EXPERIMENT_NAME=mix_en_text_de_${PREV_SUB_DATA_NAME}_asr_mt_SE_AuxLoss
+PREV_EXPERIMENT_NAME=mix_en_text_de_${PREV_SUB_DATA_NAME}_asr_mt_SE_JoinEmbedding
 SUB_DATA_NAME=dummy
 # EXPERIMENT_NAME contains fine tuning task name (i.e. st, all)
 # 'st': continue training with ST data
@@ -37,12 +37,9 @@ else
   echo "Preprocessing ${SUB_DIR} data"
   mkdir ${DATA_DIR}/${SUB_DIR}
   # Use vocabulary of the prev data for compatibility
-  # Create a vocabulary for all text sources
-  python vocab_generator.py -filenames $PREV_DATA_DIR/${SRC_LANG}_text_train.txt \
-      -out_file $DATA_DIR/${SUB_DIR}/src_vocab
-  # Create a vocabulary for all text targets
+  # Create a vocabulary for all text sources and targets
   python vocab_generator.py -filenames "$PREV_DATA_DIR/${SRC_LANG}_text_train.txt|${PREV_DATA_DIR}/${TGT_LANG}_text_train.txt" \
-      -out_file $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -out_file $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Use the above vocabs while preprocessing
   # Preprocess ASR data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
@@ -62,7 +59,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/asr_data \
       -format scp \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Preprocess ST data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_audio_train.scp  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -81,7 +78,7 @@ else
       -asr_format scp \
       -save_data $DATA_DIR/${SUB_DIR}/st_data \
       -format scp \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
   # Preprocess MT data
   python preprocess.py -train_src $DATA_DIR/${SRC_LANG}_text_train.txt  \
       -train_tgt $DATA_DIR/${TGT_LANG}_text_train.txt  \
@@ -98,8 +95,8 @@ else
       -src_type text \
       -save_data $DATA_DIR/${SUB_DIR}/mt_data \
       -format mmem \
-      -src_vocab $DATA_DIR/${SUB_DIR}/src_vocab \
-      -tgt_vocab $DATA_DIR/${SUB_DIR}/tgt_vocab
+      -src_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab \
+      -tgt_vocab $DATA_DIR/${SUB_DIR}/src_tgt_vocab
 fi
 # Whether continue from a checkpoint
 MODEL_DIR=models/${EXPERIMENT_NAME}

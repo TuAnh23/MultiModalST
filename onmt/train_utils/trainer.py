@@ -524,14 +524,9 @@ class XETrainer(BaseTrainer):
                     for i in range(0, len(additional_data_iterators)):
                         additional_data_iterators[i].load_state_dict(None)
 
-        if self.aux_loss_function is not None:
-            # Do not shuffle since we need the text and audio sentences to aligned
-            shuffle_data = False
-        else:
-            shuffle_data = not streaming
-        epoch_iterator = data_iterator.next_epoch_itr(shuffle_data, pin_memory=opt.pin_memory)
+        epoch_iterator = data_iterator.next_epoch_itr(shuffle=not streaming, pin_memory=opt.pin_memory)
         if opt.additional_data != 'none':
-            additional_epoch_iterators = [additional_data_iterator.next_epoch_itr(shuffle_data,
+            additional_epoch_iterators = [additional_data_iterator.next_epoch_itr(shuffle=not streaming,
                                                                                   pin_memory=opt.pin_memory)
                                           for additional_data_iterator in additional_data_iterators]
 

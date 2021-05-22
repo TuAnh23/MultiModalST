@@ -320,7 +320,11 @@ def main():
             assert lang in langs
     else:
         langs = (src_langs + tgt_langs)
-        langs = list(set(langs))
+        no_duplicate_langs = []
+        for lang in langs:
+            if lang not in no_duplicate_langs:
+                no_duplicate_langs.append(lang)
+        langs = no_duplicate_langs
 
     dicts['langs'] = dict()
 

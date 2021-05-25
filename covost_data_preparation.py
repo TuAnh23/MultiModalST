@@ -395,18 +395,15 @@ def main():
     print('Downloading Covost data')
     urls = {
         'en': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/en.tar.gz',
-        'fr': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/fr.tar.gz',
         'de': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/de.tar.gz',
-        'it': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/it.tar.gz',
-        'pt': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/pt.tar.gz',
-        'es': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/es.tar.gz',
-        'nl': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/nl.tar.gz'}
-    XX_EN_LANGUAGES = ['fr', 'de', 'it', 'pt', 'es', 'nl']
-    EN_XX_LANGUAGES = ['de', 'et']
+        'ca': 'https://voice-prod-bundler-ee1969a6ce8178826482b88e843c335139bd3fb4.s3.amazonaws.com/cv-corpus-4-2019-12-10/ca.tar.gz'}
+    XX_EN_LANGUAGES = ['ca', 'de']
+    EN_XX_LANGUAGES = ['de', 'ca']
     download(urls, xx_en_languages=XX_EN_LANGUAGES, en_xx_languages=EN_XX_LANGUAGES)
 
     print('Preparing Covost data')
-    prepare_en_to_X_data(['de'])
+    prepare_en_to_X_data(['ca, de'])
+    prepare_X_to_en_data(['ca, de'])
 
 
 if __name__ == "__main__":

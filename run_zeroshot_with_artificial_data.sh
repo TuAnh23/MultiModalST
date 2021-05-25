@@ -232,7 +232,7 @@ fi
 if [[ "$EXPERIMENT_NAME" = *"AuxLoss"* ]]; then
   aux_loss_start_from_str="-aux_loss_start_from 1"
   sim_loss_type_str="-sim_loss_type 11"
-  aux_loss_weight_str="-aux_loss_weight 0.1"
+  aux_loss_weight_str="-aux_loss_weight 5"
 fi
 # Run training process
 python -u train.py -data $DATA \

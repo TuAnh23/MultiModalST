@@ -97,13 +97,46 @@ class BaseTrainer(object):
         pretrained_model.load_state_dict(checkpoint['model'])
 
         print("Loading pretrained encoder weights ...")
-        pretrained_model.encoder.language_embedding = None
-        enc_language_embedding = self.model.encoder.language_embedding
-        self.model.encoder.language_embedding = None
-        encoder_state_dict = pretrained_model.encoder.state_dict()
+        if "MixedEncoder" in pretrained_model.encoder.__class__.__name__:
+            # Make sure the new encoder is also of type MixedEncoder
+            assert "MixedEncoder" in self.model.encoder.__class__.__name__
 
-        self.model.encoder.load_state_dict(encoder_state_dict)
-        self.model.encoder.language_embedding = enc_language_embedding
+            print('Loading pretrained text encoder weights ...')
+            # "language_embedding" and "word_lut" will not be loaded
+            pretrained_model.encoder.text_encoder.language_embedding = None
+            pretrained_model.encoder.text_encoder.word_lut = None
+            text_enc_language_embedding = self.model.encoder.text_encoder.language_embedding
+            text_enc_word_lut = self.model.encoder.text_encoder.word_lut
+            self.model.encoder.text_encoder.language_embedding = None
+            self.model.encoder.text_encoder.word_lut = None
+            text_encoder_state_dict = pretrained_model.encoder.text_encoder.state_dict()
+
+            self.model.encoder.text_encoder.load_state_dict(text_encoder_state_dict)
+            self.model.encoder.text_encoder.language_embedding = text_enc_language_embedding
+            self.model.encoder.text_encoder.word_lut = text_enc_word_lut
+
+            print('Loading pretrained audio encoder weights ...')
+            # "language_embedding" will not be loaded
+            pretrained_model.encoder.audio_encoder.language_embedding = None
+            audio_enc_language_embedding = self.model.encoder.audio_encoder.language_embedding
+            self.model.encoder.audio_encoder.language_embedding = None
+            audio_encoder_state_dict = pretrained_model.encoder.audio_encoder.state_dict()
+
+            self.model.encoder.audio_encoder.load_state_dict(audio_encoder_state_dict)
+            self.model.encoder.audio_encoder.language_embedding = audio_enc_language_embedding
+
+            if self.opt.share_encoders_parameter == 'all_text_enc':
+                self.model.encoder.share_encoders_parameter(text_encoder=self.model.encoder.text_encoder,
+                                                            audio_encoder=self.model.encoder.audio_encoder)
+        else:
+            # "language_embedding" will not be loaded
+            pretrained_model.encoder.language_embedding = None
+            enc_language_embedding = self.model.encoder.language_embedding
+            self.model.encoder.language_embedding = None
+            encoder_state_dict = pretrained_model.encoder.state_dict()
+
+            self.model.encoder.load_state_dict(encoder_state_dict)
+            self.model.encoder.language_embedding = enc_language_embedding
         return
 
     def load_decoder_weight(self, checkpoint_file):

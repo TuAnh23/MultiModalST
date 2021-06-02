@@ -116,7 +116,7 @@ parser.add_argument('-dynamic_max_len_scale', type=float, default=5.0,
 parser.add_argument('-dynamic_min_len_scale', type=float, default=0.0,
                     help='Using the fast decoder')
 parser.add_argument('-save_activation', type=str, default=None,
-                    help='Location to save encoder output.')
+                    help='Folder path to save encoder outputs.')
 
 
 def reportScore(name, score_total, words_total):

@@ -1,5 +1,7 @@
 import copy
 import math
+import os
+from datetime import datetime
 import numpy as np
 import torch
 import torch.nn as nn
@@ -277,16 +279,11 @@ class TransformerEncoder(nn.Module):
         if self.save_activation is not None:
             # Zero-pad layer output
             padded_context = context.masked_fill(mask_src.permute(2, 0, 1), 0).type_as(context)
-            try:
-                # Load existing file
-                saved_att = torch.load(self.save_activation + '.norm')
-            except OSError:
-                # In case no file exists, init dictionary
-                # where key=layer_idx, value=list of activations where each element is a minibatch of activations
-                saved_att = defaultdict(list)
-            # key=-1 to symbolize last encoder output (after layer norm)
-            saved_att[-1].append(padded_context)
-            torch.save(saved_att, self.save_activation + '.norm')
+
+            # Save the output, set time stamp for the file names to preserve the order
+            time_stamp = datetime.utcnow().strftime('%Y-%m-%d-%H:%M:%S.%f')[:-3]
+            save_path = self.save_activation + '/' + time_stamp
+            torch.save(padded_context, save_path + '.norm')
 
         output_dict = {'context': context, 'src_mask': mask_src}
 

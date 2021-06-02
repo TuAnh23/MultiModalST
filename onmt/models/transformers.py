@@ -147,6 +147,8 @@ class TransformerEncoder(nn.Module):
             self.change_residual_at = opt.audio_enc_change_residual_at
             self.change_residual = None if self.change_residual_at is None else opt.audio_enc_change_residual
 
+        self.save_activation = None
+
         self.time_transformer = positional_encoder
         self.language_embedding = language_embeddings
 
@@ -270,6 +272,21 @@ class TransformerEncoder(nn.Module):
                 context = layer(context, mask_src)  # batch_size x len_src x d_model
 
         context = self.postprocess_layer(context)
+
+        # Save final encoder output (after layer norm)
+        if self.save_activation is not None:
+            # Zero-pad layer output
+            padded_context = context.masked_fill(mask_src.permute(2, 0, 1), 0).type_as(context)
+            try:
+                # Load existing file
+                saved_att = torch.load(self.save_activation + '.norm')
+            except OSError:
+                # In case no file exists, init dictionary
+                # where key=layer_idx, value=list of activations where each element is a minibatch of activations
+                saved_att = defaultdict(list)
+            # key=-1 to symbolize last encoder output (after layer norm)
+            saved_att[-1].append(padded_context)
+            torch.save(saved_att, self.save_activation + '.norm')
 
         output_dict = {'context': context, 'src_mask': mask_src}
 

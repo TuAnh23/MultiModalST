@@ -26,6 +26,11 @@ class Translator(object):
         self.src_lang = opt.src_lang
         self.tgt_lang = opt.tgt_lang
 
+        if hasattr(opt, 'save_activation'):
+            self.save_activation = opt.save_activation
+        else:
+            self.save_activation = None
+
         if self.attributes:
             self.attributes = self.attributes.split("|")
 
@@ -92,6 +97,13 @@ class Translator(object):
 
             self.models.append(model)
             self.model_types.append(model_opt.model)
+
+            if "MixedEncoder" in model.encoder.__class__.__name__:
+                # Set for both text and audio encoder
+                model.encoder.text_encoder.save_activation = self.save_activation
+                model.encoder.audio_encoder.save_activation = self.save_activation
+            else:
+                model.encoder.save_activation = self.save_activation
 
         # language model
         if opt.lm is not None:

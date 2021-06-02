@@ -25,3 +25,6 @@ python_speech_features2/
 
 # Ignore notebook checkpoints
 notebooks/.ipynb_checkpoints/*
+
+# Ignore activation output
+*.norm

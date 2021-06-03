@@ -51,4 +51,4 @@ python post_process_activations.py -activations_dir $ACTIVATIONS_PATH/text_activ
     -save_activation $ACTIVATIONS_PATH/text_activation.pt
 rm -r $ACTIVATIONS_PATH/text_activation
 # Inspect SVCCA
-python svcca/inspect_st.py $ACTIVATIONS_PATH
+python svcca/inspect_st.py $ACTIVATIONS_PATH | tee ${ACTIVATIONS_PATH}/svcca_output.txt

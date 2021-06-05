@@ -21,12 +21,12 @@ echo "Save audio activations"
 python translate.py -model ${MODEL_DIR}/$CHOSEN_MODEL_NAME \
     -src $DATA_DIR/${SRC_LANG}_audio_test.scp \
     -src_lang $SRC_LANG \
-    -tgt_lang $SRC_LANG \
+    -tgt_lang $TGT_LANG \
     -concat 4 \
     -asr_format scp \
     -encoder_type audio \
-    -tgt $DATA_DIR/${SRC_LANG}_text_test.txt \
-    -output ${ACTIVATIONS_PATH}/encoded_translations_asr.txt \
+    -tgt $DATA_DIR/${TGT_LANG}_text_test.txt \
+    -output ${ACTIVATIONS_PATH}/encoded_translations_st.txt \
     -batch_size 5 \
     -max_sent_length 1024 \
     -gpu 0 \
@@ -51,4 +51,4 @@ python post_process_activations.py -activations_dir $ACTIVATIONS_PATH/text_activ
     -save_activation $ACTIVATIONS_PATH/text_activation.pt
 rm -r $ACTIVATIONS_PATH/text_activation
 # Inspect SVCCA
-python svcca/inspect_st.py $ACTIVATIONS_PATH | tee ${ACTIVATIONS_PATH}/svcca_output.txt
+python svcca/inspect_st.py $ACTIVATIONS_PATH 50 | tee ${ACTIVATIONS_PATH}/svcca_output.txt

@@ -78,6 +78,20 @@ def build_tm_model(opt, dicts):
         generators = [onmt.modules.base_seq2seq.Generator(opt.model_size, dicts['tgt'].size(),
                                                           fix_norm=opt.fix_norm_output_embedding)]
 
+    # build classifier
+    if opt.language_classifier:
+        mid_layer_size = opt.language_classifer_mid_layer_size
+        output_size = opt.num_classifier_languages
+        opt.token_classifier = 0
+
+        classifier_input_name = 'context'
+
+        generators.append(onmt.modules.base_seq2seq.Classifier(hidden_size=opt.model_size,
+                                                               output_size=output_size,  # padding is 0
+                                                               fix_norm=False, grad_scale=opt.gradient_scale,
+                                                               mid_layer_size=mid_layer_size,
+                                                               input_name=classifier_input_name))
+
     # BUILD EMBEDDINGS
     if 'src' in dicts:
         embedding_src = nn.Embedding(dicts['src'].size(),

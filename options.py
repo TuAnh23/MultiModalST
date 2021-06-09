@@ -372,6 +372,26 @@ def make_parser(parser):
     parser.add_argument('-aux_loss_weight', type=float, default=0.0,
                         help='Weight for the auxiliary loss')
 
+    parser.add_argument('-language_classifier', action='store_true',
+                        help='Whether to use a language classifier')
+
+    parser.add_argument('-language_classifier_tok', action='store_true',
+                        help='Whether to use a language classifier (tok level)')
+
+    parser.add_argument('-language_classifer_mid_layer_size', type=int, default=0,
+                        help='If > 0, add aother FC layer for language classifier of this size.')
+
+    parser.add_argument('-token_classifier', type=int, default=None,
+                        help='Whether to use a token classifier on top of encoder states. '
+                             '1: classify vocabulary ID, 2: classify position ID, 3: classify positional encoding')
+
+    parser.add_argument('-num_classifier_languages', type=int, default=2,
+                        help='Number of languages to classify.')
+
+    parser.add_argument('-gradient_scale', type=float, default=1.0,
+                        help='Scale for flipped gradient from adversarial classifier')
+
+
     # for Reformer
     # parser.add_argument('-lsh_src_attention', action='store_true',
     #                     help='Using LSH for source attention')
@@ -611,5 +631,23 @@ def backward_compatible(opt):
 
     if not hasattr(opt, 'aux_loss_weight'):
         opt.aux_loss_weight = 0.0
+
+    if not hasattr(opt, 'language_classifier'):
+        opt.language_classifier = False
+
+    if not hasattr(opt, 'language_classifier_tok'):
+        opt.language_classifier_tok = False
+
+    if not hasattr(opt, 'language_classifer_mid_layer_size'):
+        opt.language_classifer_mid_layer_size = 0
+
+    if not hasattr(opt, 'num_classifier_languages'):
+        opt.num_classifier_languages = 2
+
+    if not hasattr(opt, 'gradient_scale'):
+        opt.gradient_scale = 1.0
+
+    if not hasattr(opt, 'token_classifier'):
+        opt.token_classifier = None
 
     return opt

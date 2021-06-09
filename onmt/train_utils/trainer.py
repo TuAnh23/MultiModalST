@@ -442,7 +442,12 @@ class XETrainer(BaseTrainer):
     def eval(self, data, return_additional_info=False):
         total_loss = 0
         total_words = 0
+        total_adv_loss = 0.0
         opt = self.opt
+        if self.opt.language_classifier:
+            total_predict, correct_predict = 0.0, 0.0
+            num_labels = self.model.generator[1].output_size
+            res = torch.zeros(num_labels)
 
         self.model.eval()
         self.loss_function.eval()
@@ -496,10 +501,48 @@ class XETrainer(BaseTrainer):
 
                 total_loss += loss_data
                 total_words += batch.tgt_size
+
+                # adv loss
+                if opt.language_classifier and opt.language_classifier_tok:
+                    if opt.token_classifier == 0:
+                        # predict language ID
+                        targets_classifier = batch.get('targets_source_lang')  # starts from 1 (0 is padding)
+                    elif opt.token_classifier == 1:
+                        # predict source token ID
+                        targets_classifier = batch.get('source')  # starts from 0 (padding), real tokens starts from 1
+                    elif opt.token_classifier == 2:
+                        # predict positional ID
+                        targets_classifier = batch.get('source_pos')
+                        targets_classifier[targets_classifier != 0] += 1  # start from 0
+                        targets_classifier[0, :] += 1
+                    else:
+                        raise NotImplementedError
+
+                    classifier_loss_dict = self.loss_function(outputs, targets=targets_classifier, model=self.model,
+                                                              lan_classifier=True)
+                    classifier_loss_data = classifier_loss_dict['data'] if classifier_loss_dict['data'] is not None else 0
+                    total_adv_loss += classifier_loss_data
+
+                    if opt.token_classifier is not None:
+                        logprobs_lan = outputs['logprobs_lan']
+                        logprobs_lan = logprobs_lan.masked_fill(outputs['src_mask'].permute(2, 0, 1),
+                                                                           onmt.constants.PAD).type_as(logprobs_lan)
+                        pred = logprobs_lan  # T, B, V
+
+                        pred_idx = torch.argmax(pred, dim=-1).cpu()  # T, B. starts from 0
+                        correct_idx = (targets_classifier.cpu() - 1 == pred_idx) # padding not counted, since 0 - 1 would be -1
+
+                        correct_predict += correct_idx.sum()
+                        total_predict += (~outputs['src_mask']).sum()
+
                 i = i + 1
 
         self.model.train()
         self.loss_function.train()
+
+        if opt.token_classifier is not None:
+            # Return the classifier accuracy instead of the ppl in normal case
+            return correct_predict, total_predict, (correct_predict / total_predict).data.item()
 
         if return_additional_info:
             return total_loss, total_words, total_loss / total_words
@@ -566,6 +609,7 @@ class XETrainer(BaseTrainer):
         total_tokens, total_loss, total_words = 0, 0, 0
         total_non_pads = 0
         report_loss, report_tgt_words = 0, 0
+        report_classifier_loss = 0.0
         report_src_words = 0
         report_ctc_loss = 0
         report_rec_loss, report_rev_loss, report_mirror_loss, report_aux_sim_loss = 0, 0, 0, 0
@@ -732,54 +776,76 @@ class XETrainer(BaseTrainer):
                 # Normalizing the loss to grad scaler ensures this will not happen
                 full_loss.div_(grad_scaler)
 
+                has_classifier_loss = self.opt.token_classifier is not None
                 use_aux_loss = epoch >= self.opt.aux_loss_start_from
 
-                if use_aux_loss and self.aux_loss_function is not None:
-                    # retain_graph if: (1) not at the end of epoch, (2) ASR or not-skipped MT batch
-                    retain_graph = (not data_iterator.end_of_epoch())\
-                                   and ((not run_waiting_batch) or (run_waiting_batch and mt_batch and not skip_aux_loss))
-                else:
-                    retain_graph = None
+                if not has_classifier_loss:
+                    if use_aux_loss and self.aux_loss_function is not None:
+                        # retain_graph if: (1) not at the end of epoch, (2) ASR or not-skipped MT batch
+                        retain_graph = (not data_iterator.end_of_epoch())\
+                                       and ((not run_waiting_batch) or (run_waiting_batch and mt_batch and not skip_aux_loss))
+                    else:
+                        retain_graph = None
 
-                if self.cuda:
-                    with amp.scale_loss(full_loss, optimizer) as scaled_loss:
-                        scaled_loss.backward(retain_graph=retain_graph)
-                else:
-                    full_loss.backward(retain_graph=retain_graph)
+                    if self.cuda:
+                        with amp.scale_loss(full_loss, optimizer) as scaled_loss:
+                            scaled_loss.backward(retain_graph=retain_graph)
+                    else:
+                        full_loss.backward(retain_graph=retain_graph)
 
-                if use_aux_loss and (self.aux_loss_function is not None):
-                    aux_loss_data = 0
-                    if run_waiting_batch and mt_batch:
-                        if not skip_aux_loss:
-                            # Make sure text and audio sentences are aligned
-                            assert len(batch.src_lengths) == len(audio_tgt_lengths)
-                            for len_i in range(0, len(batch.src_lengths)):
-                                # Tgt sentences has 2 additional tokens: bos and eos
-                                assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
+                    if use_aux_loss and (self.aux_loss_function is not None):
+                        aux_loss_data = 0
+                        if run_waiting_batch and mt_batch:
+                            if not skip_aux_loss:
+                                # Make sure text and audio sentences are aligned
+                                assert len(batch.src_lengths) == len(audio_tgt_lengths)
+                                for len_i in range(0, len(batch.src_lengths)):
+                                    # Tgt sentences has 2 additional tokens: bos and eos
+                                    assert batch.src_lengths[len_i] == audio_tgt_lengths[len_i] - 2
 
-                            # Calculate the difference between the text and audio
-                            aux_loss_dict = self.aux_loss_function(audio_context,
-                                                                   outputs['context'],
-                                                                   audio_src_mask,
-                                                                   outputs['src_mask'])
-                            aux_loss_data = aux_loss_dict['data']
-                            loss = aux_loss_dict['loss'].div_(
-                                grad_scaler)  # a little trick to avoid gradient overflow with fp16
+                                # Calculate the difference between the text and audio
+                                aux_loss_dict = self.aux_loss_function(audio_context,
+                                                                       outputs['context'],
+                                                                       audio_src_mask,
+                                                                       outputs['src_mask'])
+                                aux_loss_data = aux_loss_dict['data']
+                                loss = aux_loss_dict['loss'].div_(
+                                    grad_scaler)  # a little trick to avoid gradient overflow with fp16
 
-                            if self.cuda:
-                                with amp.scale_loss(loss, optimizer) as scaled_loss:
-                                    scaled_loss.backward()
+                                if self.cuda:
+                                    with amp.scale_loss(loss, optimizer) as scaled_loss:
+                                        scaled_loss.backward()
+                                else:
+                                    loss.backward()
                             else:
-                                loss.backward()
-                        else:
-                            skip_aux_loss = False
+                                skip_aux_loss = False
 
-                        mt_batch = False
+                            mt_batch = False
 
-                    elif not run_waiting_batch:
-                        audio_context = outputs['context']  # .clone()
-                        audio_src_mask = outputs['src_mask']  # .clone()
-                        audio_tgt_lengths = batch.tgt_lengths
+                        elif not run_waiting_batch:
+                            audio_context = outputs['context']  # .clone()
+                            audio_src_mask = outputs['src_mask']  # .clone()
+                            audio_tgt_lengths = batch.tgt_lengths
+                else:
+                    # train classifier
+                    # freeze enc & dec
+                    self.model.encoder.requires_grad_(False)
+                    self.model.decoder.requires_grad_(False)
+
+                    if self.opt.token_classifier == 0:  # language ID
+                        targets_classifier = batch.get('targets_source_lang')
+
+                    classifier_loss_dict = self.loss_function(outputs, targets=targets_classifier,
+                                                              model=self.model, lan_classifier=True)
+                    classifier_loss = classifier_loss_dict['loss'].div_(
+                                    grad_scaler)  # a little trick to avoid gradient overflow with fp16
+                    classifier_loss_data = classifier_loss_dict['data']
+                    # calc gradient for lan classifier
+                    if self.cuda:
+                        with amp.scale_loss(classifier_loss, optimizer) as scaled_loss:
+                            scaled_loss.backward()
+                    else:
+                        classifier_loss.backward()
 
                 del outputs
 
@@ -850,32 +916,58 @@ class XETrainer(BaseTrainer):
                     num_accumulated_sents = 0
                     num_updates = self.optim._step
                     if opt.save_every > 0 and num_updates % opt.save_every == -1 % opt.save_every:
-                        valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
-                                                                                    return_additional_info=True)
-                        valid_ppl = math.exp(min(valid_loss, 100))
-                        print('Validation perplexity: %g' % valid_ppl)
+                        if opt.token_classifier is not None:
+                            correct_predict, total_predict, accuracy = self.eval(self.valid_data)
+                            print('Classifier accuracy on main data', accuracy)
 
-                        if opt.additional_data != 'none':
-                            combined_total_loss = valid_total_loss
-                            combined_total_words = valid_total_words
-                            for i_additional in range(0, len(self.additional_data_valid)):
-                                additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
-                                    self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
-                                additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
-                                print('Validation perplexity on additional data %d: %g' % (i_additional,
-                                                                                           additional_valid_ppl))
-                                combined_total_loss = combined_total_loss + additional_valid_total_loss
-                                combined_total_words = combined_total_words + additional_valid_total_words
+                            if opt.additional_data != 'none':
+                                combined_correct_predict = correct_predict
+                                combined_total_predict = total_predict
+                                for i_additional in range(0, len(self.additional_data_valid)):
+                                    additional_correct_predict, additional_total_predict, additional_accuracy = \
+                                        self.eval(self.additional_data_valid[i_additional])
+                                    print('Classifier accuracy on additional data %d: %g' % (i_additional,
+                                                                                               additional_accuracy))
+                                    combined_correct_predict = combined_correct_predict + additional_correct_predict
+                                    combined_total_predict = combined_total_predict + additional_total_predict
 
-                            combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
-                            print('Validation perplexity combined: %g' % combined_valid_ppl)
+                                combined_accuracy = (combined_correct_predict / combined_total_predict).data.item()
+                                print('Classifier accuracy combined: %g' % combined_accuracy)
 
-                        ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
-                        if opt.additional_data != 'none':
-                            self.save(ep, combined_valid_ppl, itr=data_iterator,
-                                      additional_itrs=additional_data_iterators)
+                            ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
+                            if opt.additional_data != 'none':
+                                self.save(ep, combined_accuracy, itr=data_iterator,
+                                          additional_itrs=additional_data_iterators)
+                            else:
+                                self.save(ep, accuracy, itr=data_iterator)
+
                         else:
-                            self.save(ep, valid_ppl, itr=data_iterator)
+                            valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                                        return_additional_info=True)
+                            valid_ppl = math.exp(min(valid_loss, 100))
+                            print('Validation perplexity: %g' % valid_ppl)
+
+                            if opt.additional_data != 'none':
+                                combined_total_loss = valid_total_loss
+                                combined_total_words = valid_total_words
+                                for i_additional in range(0, len(self.additional_data_valid)):
+                                    additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                                        self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
+                                    additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                                    print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                                               additional_valid_ppl))
+                                    combined_total_loss = combined_total_loss + additional_valid_total_loss
+                                    combined_total_words = combined_total_words + additional_valid_total_words
+
+                                combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
+                                print('Validation perplexity combined: %g' % combined_valid_ppl)
+
+                            ep = float(epoch) - 1. + ((float(i) + 1.) / n_samples)
+                            if opt.additional_data != 'none':
+                                self.save(ep, combined_valid_ppl, itr=data_iterator,
+                                          additional_itrs=additional_data_iterators)
+                            else:
+                                self.save(ep, valid_ppl, itr=data_iterator)
 
                 num_words = tgt_size
                 report_loss += loss_data
@@ -898,6 +990,9 @@ class XETrainer(BaseTrainer):
                 if use_aux_loss and self.aux_loss_function is not None:
                     report_aux_sim_loss += aux_loss_data
 
+                if self.opt.language_classifier:
+                    report_classifier_loss += classifier_loss_data
+
                 if (i == 0 or (i % opt.log_interval == -1 % opt.log_interval)) and (not run_waiting_batch):
                     log_string = ("Epoch %2d, %5d/%5d; ; ppl: %6.2f ; " %
                                   (epoch, i + 1, len(data_iterator),
@@ -915,6 +1010,9 @@ class XETrainer(BaseTrainer):
 
                     if epoch >= self.opt.aux_loss_start_from:
                         log_string += (" Aux loss: %6.2f ; " % (report_aux_sim_loss / report_src_words))
+
+                    if self.opt.language_classifier:
+                        log_string += (" Classifier loss: %6.2f ; " % (report_classifier_loss  / report_src_words))
 
                     log_string += ("lr: %.7f ; updates: %7d; " %
                                    (optim.getLearningRate(),
@@ -1012,26 +1110,44 @@ class XETrainer(BaseTrainer):
         # if we are on a GPU: warm up the memory allocator
         if self.cuda:
             self.warm_up()
+            if opt.token_classifier is not None:
+                correct_predict, total_predict, accuracy = self.eval(self.valid_data)
+                print('Classifier accuracy on main data', accuracy)
 
-            valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
-                                                                        return_additional_info=True)
-            valid_ppl = math.exp(min(valid_loss, 100))
-            print('Validation perplexity: %g' % valid_ppl)
+                if opt.additional_data != 'none':
+                    combined_correct_predict = correct_predict
+                    combined_total_predict = total_predict
+                    for i_additional in range(0, len(self.additional_data_valid)):
+                        additional_correct_predict, additional_total_predict, additional_accuracy = \
+                            self.eval(self.additional_data_valid[i_additional])
+                        print('Classifier accuracy on additional data %d: %g' % (i_additional,
+                                                                                 additional_accuracy))
+                        combined_correct_predict = combined_correct_predict + additional_correct_predict
+                        combined_total_predict = combined_total_predict + additional_total_predict
 
-            if opt.additional_data != 'none':
-                combined_total_loss = valid_total_loss
-                combined_total_words = valid_total_words
-                for i_additional in range(0, len(self.additional_data_valid)):
-                    additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
-                        self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
-                    additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
-                    print('Validation perplexity on additional data %d: %g' % (i_additional,
-                                                                               additional_valid_ppl))
-                    combined_total_loss = combined_total_loss + additional_valid_total_loss
-                    combined_total_words = combined_total_words + additional_valid_total_words
+                    combined_accuracy = (combined_correct_predict / combined_total_predict).data.item()
+                    print('Classifier accuracy combined: %g' % combined_accuracy)
 
-                combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
-                print('Validation perplexity combined: %g' % combined_valid_ppl)
+            else:
+                valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                            return_additional_info=True)
+                valid_ppl = math.exp(min(valid_loss, 100))
+                print('Validation perplexity: %g' % valid_ppl)
+
+                if opt.additional_data != 'none':
+                    combined_total_loss = valid_total_loss
+                    combined_total_words = valid_total_words
+                    for i_additional in range(0, len(self.additional_data_valid)):
+                        additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                            self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
+                        additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                        print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                                   additional_valid_ppl))
+                        combined_total_loss = combined_total_loss + additional_valid_total_loss
+                        combined_total_words = combined_total_words + additional_valid_total_words
+
+                    combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
+                    print('Validation perplexity combined: %g' % combined_valid_ppl)
 
         self.start_time = time.time()
         for epoch in range(start_epoch, start_epoch + opt.epochs):
@@ -1046,31 +1162,55 @@ class XETrainer(BaseTrainer):
             train_ppl = math.exp(min(train_loss, 100))
             print('Train perplexity: %g' % train_ppl)
 
-            #  (2) evaluate on the validation set
-            valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
-                                                                        return_additional_info=True)
-            valid_ppl = math.exp(min(valid_loss, 100))
-            print('Validation perplexity: %g' % valid_ppl)
+            if opt.token_classifier is not None:
+                correct_predict, total_predict, accuracy = self.eval(self.valid_data)
+                print('Classifier accuracy on main data', accuracy)
 
-            if opt.additional_data != 'none':
-                combined_total_loss = valid_total_loss
-                combined_total_words = valid_total_words
-                for i_additional in range(0, len(self.additional_data_valid)):
-                    additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
-                        self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
-                    additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
-                    print('Validation perplexity on additional data %d: %g' % (i_additional,
-                                                                               additional_valid_ppl))
-                    combined_total_loss = combined_total_loss + additional_valid_total_loss
-                    combined_total_words = combined_total_words + additional_valid_total_words
+                if opt.additional_data != 'none':
+                    combined_correct_predict = correct_predict
+                    combined_total_predict = total_predict
+                    for i_additional in range(0, len(self.additional_data_valid)):
+                        additional_correct_predict, additional_total_predict, additional_accuracy = \
+                            self.eval(self.additional_data_valid[i_additional])
+                        print('Classifier accuracy on additional data %d: %g' % (i_additional,
+                                                                                 additional_accuracy))
+                        combined_correct_predict = combined_correct_predict + additional_correct_predict
+                        combined_total_predict = combined_total_predict + additional_total_predict
 
-                combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
-                print('Validation perplexity combined: %g' % combined_valid_ppl)
+                    combined_accuracy = (combined_correct_predict / combined_total_predict).data.item()
+                    print('Classifier accuracy combined: %g' % combined_accuracy)
 
-            if opt.additional_data != 'none':
-                self.save(epoch, combined_valid_ppl)
+                if opt.additional_data != 'none':
+                    self.save(epoch, combined_accuracy)
+                else:
+                    self.save(epoch, accuracy)
+
             else:
-                self.save(epoch, valid_ppl)
+                #  (2) evaluate on the validation set
+                valid_total_loss, valid_total_words, valid_loss = self.eval(self.valid_data,
+                                                                            return_additional_info=True)
+                valid_ppl = math.exp(min(valid_loss, 100))
+                print('Validation perplexity: %g' % valid_ppl)
+
+                if opt.additional_data != 'none':
+                    combined_total_loss = valid_total_loss
+                    combined_total_words = valid_total_words
+                    for i_additional in range(0, len(self.additional_data_valid)):
+                        additional_valid_total_loss, additional_valid_total_words, additional_valid_loss = \
+                            self.eval(self.additional_data_valid[i_additional], return_additional_info=True)
+                        additional_valid_ppl = math.exp(min(additional_valid_loss, 100))
+                        print('Validation perplexity on additional data %d: %g' % (i_additional,
+                                                                                   additional_valid_ppl))
+                        combined_total_loss = combined_total_loss + additional_valid_total_loss
+                        combined_total_words = combined_total_words + additional_valid_total_words
+
+                    combined_valid_ppl = math.exp(min(combined_total_loss / combined_total_words, 100))
+                    print('Validation perplexity combined: %g' % combined_valid_ppl)
+
+                if opt.additional_data != 'none':
+                    self.save(epoch, combined_valid_ppl)
+                else:
+                    self.save(epoch, valid_ppl)
             itr_progress = None
             additional_itrs_progresses = None
             resume = False

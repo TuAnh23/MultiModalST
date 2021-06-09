@@ -164,6 +164,8 @@ class TransformerEncoder(nn.Module):
         self.layer_modules = nn.ModuleList()
         self.build_modules()
 
+        self.language_classifier = opt.language_classifier
+
     def build_modules(self):
 
         e_length = expected_length(self.layers, self.death_rate)
@@ -754,6 +756,15 @@ class Transformer(NMTModel):
         # compute the logits for each encoder step
         if self.ctc:
             output_dict['encoder_logits'] = self.ctc_linear(output_dict['context'])
+
+        # make language classification
+        if ("MixedEncoder" in self.encoder.__class__.__name__ and
+                self.encoder.text_encoder.language_classifier and \
+                self.encoder.audio_encoder.language_classifier) or \
+           ("MixedEncoder" not in self.encoder.__class__.__name__ and \
+                self.encoder.language_classifier):
+            logprobs_lan = self.generator[1](encoder_output)
+            output_dict['logprobs_lan'] = logprobs_lan
 
         return output_dict
 

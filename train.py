@@ -177,7 +177,8 @@ def main():
                                               augment=opt.augment_speech,
                                               upsampling=opt.upsampling,
                                               cleaning=True, verbose=True,
-                                              num_split=len(opt.gpus))
+                                              num_split=len(opt.gpus),
+                                              token_level_lang=opt.language_classifier_tok)
 
                     train_sets.append(train_data)
 
@@ -227,7 +228,8 @@ def main():
                                               batch_size_sents=opt.batch_size_sents,
                                               src_align_right=opt.src_align_right,
                                               cleaning=True, verbose=True, debug=True,
-                                              num_split=len(opt.gpus))
+                                              num_split=len(opt.gpus),
+                                              token_level_lang=opt.language_classifier_tok)
 
                     valid_sets.append(valid_data)
 
@@ -419,7 +421,8 @@ def load_data(data_path, data_format, order=None, batches=None):
                                       multiplier=opt.batch_size_multiplier,
                                       augment=opt.augment_speech,
                                       upsampling=opt.upsampling,
-                                      num_split=len(opt.gpus))
+                                      num_split=len(opt.gpus),
+                                      token_level_lang=opt.language_classifier_tok)
         else:
             train_data = onmt.StreamDataset(train_dict['src'], train_dict['tgt'],
                                             train_src_langs, train_tgt_langs,
@@ -451,7 +454,8 @@ def load_data(data_path, data_format, order=None, batches=None):
                                       data_type=dataset.get("type", "text"), sorting=True,
                                       batch_size_sents=opt.batch_size_sents,
                                       upsampling=opt.upsampling,
-                                      num_split=len(opt.gpus))
+                                      num_split=len(opt.gpus),
+                                      token_level_lang=opt.language_classifier_tok)
         else:
             valid_data = onmt.StreamDataset(numpy_to_torch(valid_dict['src']), numpy_to_torch(valid_dict['tgt']),
                                             valid_src_langs, valid_tgt_langs,
@@ -527,7 +531,8 @@ def load_data(data_path, data_format, order=None, batches=None):
                                       augment=opt.augment_speech,
                                       upsampling=opt.upsampling,
                                       cleaning=True, verbose=True,
-                                      num_split=len(opt.gpus))
+                                      num_split=len(opt.gpus),
+                                      token_level_lang=opt.language_classifier_tok)
         else:
             train_data = onmt.StreamDataset(train_src,
                                             train_tgt,
@@ -573,7 +578,8 @@ def load_data(data_path, data_format, order=None, batches=None):
                                       batch_size_sents=opt.batch_size_sents,
                                       src_align_right=opt.src_align_right,
                                       cleaning=True, verbose=True, debug=True,
-                                      num_split=len(opt.gpus))
+                                      num_split=len(opt.gpus),
+                                      token_level_lang=opt.language_classifier_tok)
         else:
             # for validation data, we have to go through sentences (very slow but to ensure correctness)
             valid_data = onmt.StreamDataset(valid_src, valid_tgt,

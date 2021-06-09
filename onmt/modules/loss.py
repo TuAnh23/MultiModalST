@@ -100,6 +100,42 @@ class CrossEntropyLossBase(_Loss):
 
         return loss, loss_data
 
+    def _compute_adv_loss(self, scores, targets, reverse_landscape=False, multiclass=False):
+        # no label smoothing
+        # Note: language ID starts from 1
+        if not reverse_landscape:
+            try:
+                gtruth = targets.view(-1)  # 1D, (batch X time).
+            except RuntimeError:
+                gtruth = targets.contiguous().view(-1)
+            scores = scores.view(-1, scores.size(-1))  # 2D, batch * (time X vocab_size)
+            lprobs = scores
+            non_pad_mask = gtruth.ne(self.padding_idx)
+            nll_loss = -lprobs.gather(1, torch.clamp(gtruth.unsqueeze(1)-1, min=0))[non_pad_mask]
+            nll_loss = nll_loss.sum()
+            loss = nll_loss
+        else:
+            gtruth = targets.view(-1)  # 1D, (batch X time).
+            scores = scores.view(-1, scores.size(-1))  # 2D, batch * (time X vocab_size / # labels)
+            lprobs = scores
+            non_pad_mask = gtruth.ne(self.padding_idx)
+            # # gtruth_complement = torch.ones((gtruth.shape[0], gtruth.max()+1), dtype=torch.long).to(device='cuda')
+            # # gtruth_complement[torch.arange(gtruth.shape[0]), gtruth] = 0
+            # # 2D, time * vocab_size
+            total_tok = gtruth.shape[0]
+            num_classes = scores.nelement() / total_tok
+            base = torch.arange(num_classes, dtype=torch.long).to(device='cuda').unsqueeze(0).repeat(total_tok, 1)
+            chosen_bol = torch.arange(num_classes).to(device='cuda').unsqueeze(1) != torch.clamp(gtruth-1, min=0)  # other than label index
+            remaining = base[chosen_bol.T].view(total_tok, -1)
+            #
+            nll_loss = -lprobs.gather(1, remaining)[non_pad_mask]
+            nll_loss = nll_loss.sum()
+            loss = -nll_loss  # reverse
+
+        loss_data = loss.data.item()
+
+        return loss, loss_data
+
     def forward(self, model_outputs, targets, hiddens, **kwargs):
         return NotImplementedError
 
@@ -133,7 +169,8 @@ class NMTLossFunc(CrossEntropyLossBase):
     def get_loss_function(self, name):
         return self.extra_modules[name] if name in self.extra_modules else None
 
-    def forward(self, model_outputs, targets, model=None, vocab_mask=None, **kwargs):
+    def forward(self, model_outputs, targets, model=None, vocab_mask=None, lan_classifier=False,
+                reverse_landscape=False, **kwargs):
         """
         Compute the loss. Subclass must define this method.
         Args:
@@ -147,7 +184,7 @@ class NMTLossFunc(CrossEntropyLossBase):
 
         outputs = model_outputs['hidden']
         # the model no longer outputs logprobs, only logits
-        logits = model_outputs['logprobs']
+        logits = model_outputs['logprobs'] if not lan_classifier else model_outputs['logprobs_lan']
         mirror = self.mirror
 
         if mirror:
@@ -158,7 +195,8 @@ class NMTLossFunc(CrossEntropyLossBase):
             reverse_targets = model_outputs['reverse_target']
             alpha = 1.0
 
-        loss, loss_data = self._compute_loss(logits, targets, vocab_mask=vocab_mask)
+        loss, loss_data = self._compute_loss(logits, targets, vocab_mask=vocab_mask) if not lan_classifier \
+            else self._compute_adv_loss(logits, targets, reverse_landscape=reverse_landscape)  # no label smoothing
 
         total_loss = loss
 

@@ -276,7 +276,7 @@
 	For the zero-shot model with residual connections in the middle layer of the shared encoder part removed, we observe that the model failed to learn the ASR task. The validation loss for the ASR task could not converge, and the WER score on the test set is 102.2\% (i.e., the model output transcriptions are mostly wrong). However, for the MT task, the validation loss can converge, and the BLEU score on the test set is 13.7. This is worse compared to the plain zero-shot model (with 23.1 BLEU points on MT task), but it still proves that MT task can be learned with the middle residual connections removed. When performing zero-shot ST, the model still outputs the wrong language (\textit{EN} instead of \textit{DE}).
 	
 	%	\begin{figure}[htbp]
-	%		\centerline{\includegraphics[width=\linewidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/DEPI_loss".pdf}}
+	%		\centerline{\includegraphics[width=\linewidth]{"charts/DEPI_loss".pdf}}
 	%		\caption{Validation loss of supervised tasks for zero-shot model with and without residual connections in the middle layer of the shared encoder part removed. Note that we skip plotting the first 2 epochs for visibility.}
 	%		\label{fig:DEPI_loss}
 	%	\end{figure}
@@ -354,7 +354,7 @@
 		\end{center}
 	\end{table}
 	
-%	\subsection{Data augmentation} \label{sec:ad4_exp}
+	%	\subsection{Data augmentation} \label{sec:ad4_exp}
 	We experiment with different sets of augmented training data as described in Fig. \ref{fig:EnDeAd}. The amount of artificial data is half of the amount of the main data. In setting (a), both \textit{EN audio} and \textit{EN text} input has two target languages. In setting (b), we have the same \textit{EN-R text} input with \textit{EN} and \textit{DE} output so that the model can learn to switch between \textit{EN} and \textit{DE} targets. In setting (c), we include the artificial data of both (a) and (b). 
 	
 	\begin{figure}[htbp]
@@ -799,13 +799,13 @@
 	The analysis of models trained on 25\% of the data is shown in Fig. \ref{fig:models25}. Looking at Fig. \ref{fig:models25}a, all of our approaches help increasing text-audio similarity, except adding opposite training data. Trivially, the models with auxiliary loss have higher SVCCA scores, since we designed our auxiliary loss to minimize the text-audio difference. For models with augmented training data, we have higher text-audio similarity possibly due to \textit{EN text} and \textit{EN audio} input has the same \textit{ENR text} output during training. Text and audio are represented more similarly in few-shot models than in zero-shot models. This is expected, since few-shot models have seen both \textit{EN audio} and \textit{EN text} being translated to \textit{DE text} during training, while zero-shot models have only seen \textit{EN audio} and \textit{EN text} being translated to different target language during training. Another observation is that the higher the SVCCA score of a zero-shot model, the higher the SVCCA score of the corresponding few-shot model. It suggests that our approaches have already introduced text-audio similarity in the zero-shot settings, but the effect is only clearly shown when we continue to fine-tune with ST data to build few-shot models.
 	
 	\begin{figure}[htbp]
-		\centerline{\includegraphics[width=0.46\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/models25".pdf}}
+		\centerline{\includegraphics[width=0.46\textwidth]{"charts/models25".pdf}}
 		\caption{Analysis of models pre-trained on 25\% of the data.}
 		\label{fig:models25}
 	\end{figure}
 	
 	%	\begin{figure}[htbp]
-	%		\centerline{\includegraphics[width=0.35\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/SVCCA25".pdf}}
+	%		\centerline{\includegraphics[width=0.35\textwidth]{"charts/SVCCA25".pdf}}
 	%		\caption{SVCCA scores of models trained on 25\% of the data.}
 	%		\label{fig:svcca25}
 	%	\end{figure}
@@ -814,7 +814,7 @@
 	We put the SVCCA scores and the BLEU scores on ST task of few-shot models together to get more insight, as shown in Fig. \ref{fig:models25}b. Observe that most of the scores agree with our hypothesis: more text-audio similarity means higher BLEU score. The only exception is the model with additional opposite data, which has a higher BLEU score but a lower SVCCA score compared to the plain model.
 	
 	%	\begin{figure}[htbp]
-	%		\centerline{\includegraphics[width=0.4\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/ft_svcca_bleu_25".pdf}}
+	%		\centerline{\includegraphics[width=0.4\textwidth]{"charts/ft_svcca_bleu_25".pdf}}
 	%		\caption{SVCCA and BLEU scores of few-shot models pre-trained on 25\% of the data. The numbers on the bars are comparison to the plain model.}
 	%		\label{fig:ft_svcca_bleu_25}
 	%	\end{figure}
@@ -837,19 +837,19 @@
 	The analysis of models trained on full data is shown in Fig. \ref{fig:modelsfull}. Overall, the SVCCA scores of models trained on full data are higher than those trained on 25\% of the data. This is possibly due to the models learn the tasks in a less modality-specific way with a larger amount of training data. We observe similar patterns in the SVCCA scores compared to when the models were trained on 25\% data: most approaches increase the SVCCA score on text-audio similarity; few-shot models have higher SVCCA score than zero-shot models; the higher the SVCCA score of a zero-shot model, the higher the SVCCA score of the corresponding few-shot model; few-shot models with higher SVCCA score have higher BLEU score compared to the plain model. The opposite data approach remains exceptional, where the SVCCA score is approximately the same as the plain setting, but the BLEU score is improved. We also observe that the few-shot model with augmented data and auxiliary loss has the highest SVCCA score on text-audio similarity, yet its ST performance is worse than the few-shot model with opposite data and auxiliary loss. The reason is that models using opposite data can learn language-independent representation of the data, which also helps improving the BLEU score as discussed above. To confirm this, we calculate the SVCCA score of \textit{EN text - DE text} for the two models. The few-shot model using opposite data and auxiliary loss obtains 0.539 points, which is higher than that of the few-shot model using augmented data and auxiliary loss, at 0.397. 
 	
 	\begin{figure}[htbp]
-		\centerline{\includegraphics[width=0.49\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/modelsfull".pdf}}
+		\centerline{\includegraphics[width=0.49\textwidth]{"charts/modelsfull".pdf}}
 		\caption{Analysis of models pre-trained on full data.}
 		\label{fig:modelsfull}
 	\end{figure}
 	
 	%	\begin{figure}[htbp]
-	%		\centerline{\includegraphics[width=0.4\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/SVCCAfull".pdf}}
+	%		\centerline{\includegraphics[width=0.4\textwidth]{"charts/SVCCAfull".pdf}}
 	%		\caption{SVCCA scores of models trained on full data.}
 	%		\label{fig:svccafull}
 	%	\end{figure}
 	%	
 	%	\begin{figure}[htbp]
-	%		\centerline{\includegraphics[width=0.45\textwidth]{"C:/Users/TuAhnDinh/OneDrive - Mediaan abs b.v/thesis/visualizations/ft_svcca_bleu_full".pdf}}
+	%		\centerline{\includegraphics[width=0.45\textwidth]{"charts/ft_svcca_bleu_full".pdf}}
 	%		\caption{SVCCA and BLEU scores of few-shot models pre-trained on full data. The numbers on the bars are comparison to the plain model.}
 	%		\label{fig:ft_svcca_bleu_full}
 	%	\end{figure}

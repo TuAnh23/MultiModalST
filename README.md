@@ -23,3 +23,5 @@ High-level instruction to use the repo:
 	- `run_bidirectional_zeroshot.sh` for zero-shot models using additional opposite training data
 	- `run_fine_tunning.sh`, `run_fine_tunning_fromASR.sh` for fine-tuning pre-trained models
 	- `modality_similarity_svcca.sh`, `modality_similarity_classifier.sh` measure text-audio similarity in representation
+	
+See `notebooks/Repo_Instruction.ipynb` for more details.

@@ -104,9 +104,10 @@ def read_tsv_split(translation_dir, src_lang, tgt_lang, split, audiodir):
     return remove_empty_transcription(remove_empty_audio(split_df, audiodir))
 
 
-def prepare_X_to_en_data(src_lang_list):
+def prepare_X_to_en_data(src_lang_list, training_portion=1):
     """
     :param src_lang_list: list of source languages
+    :param training_portion: portion of training data. 1 means using all the training data
     :return:
     """
     tgt_lang = 'en'
@@ -116,12 +117,13 @@ def prepare_X_to_en_data(src_lang_list):
 
         # If this pair of src-tgt is not yet prepared then we prepare it
         if not os.path.exists(src_tgt_dir_path):
-            prepare_src_tgt(src_lang, tgt_lang, src_tgt_dir_path)
+            prepare_src_tgt(src_lang, tgt_lang, src_tgt_dir_path, training_portion=training_portion)
 
 
-def prepare_en_to_X_data(tgt_lang_list):
+def prepare_en_to_X_data(tgt_lang_list, training_portion=1):
     """
     :param tgt_lang_list: list of target languages
+    :param training_portion: portion of training data. 1 means using all the training data
     :return:
     """
     src_lang = 'en'
@@ -158,6 +160,7 @@ def prepare_en_to_X_data(tgt_lang_list):
     test_df_no_translation = any_df_splits['test_df'].drop(['translation', 'client_id'], axis='columns', inplace=False)
 
     train_audios_list = [audiodir + '/' + path for path in train_df_no_translation['path']]
+    train_audios_list = train_audios_list[:round(len(train_audios_list)*training_portion)]
     val_audios_list = [audiodir + '/' + path for path in val_df_no_translation['path']]
     test_audios_list = [audiodir + '/' + path for path in test_df_no_translation['path']]
 
@@ -232,12 +235,13 @@ def has_processed_text(file_prefix):
             and os.path.exists(f'{file_prefix}_text.vocab')
 
 
-def prepare_src_tgt(src_lang, tgt_lang, preprocessed_src_tgt_dir_path):
+def prepare_src_tgt(src_lang, tgt_lang, preprocessed_src_tgt_dir_path, training_portion=1):
     """
     Prepare audios and transcriptions in src_lang and translations in tgt_lang
     :param src_lang: language of the audios and its transcription
     :param tgt_lang: language of the translated transcription
     :param preprocessed_src_tgt_dir_path: location to save the processed audios, transcriptions and translations
+    :param training_portion: portion of training data. 1 means using all the training data
     :return:
     """
     if src_lang == tgt_lang:
@@ -256,6 +260,7 @@ def prepare_src_tgt(src_lang, tgt_lang, preprocessed_src_tgt_dir_path):
     test_df = read_tsv_split(TRANSLATIONS_DIR, src_lang=src_lang, tgt_lang=tgt_lang, split='test', audiodir=audiodir)
 
     train_audios_list = [audiodir + '/' + path for path in train_df['path']]
+    train_audios_list = train_audios_list[:round(len(train_audios_list) * training_portion)]
     val_audios_list = [audiodir + '/' + path for path in val_df['path']]
     test_audios_list = [audiodir + '/' + path for path in test_df['path']]
 
@@ -402,6 +407,8 @@ def main():
     download(urls, xx_en_languages=XX_EN_LANGUAGES, en_xx_languages=EN_XX_LANGUAGES)
 
     print('Preparing Covost data')
+    # Can also set the "training_portion" argument to only use part of the training data. Rename the PREPROCESSED_DIR
+    # variable accordingly
     prepare_en_to_X_data(['ca, de'])
     prepare_X_to_en_data(['ca, de'])
 

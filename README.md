@@ -2,7 +2,8 @@
 
 <em> This repository is derived from the NMTGMinor project at 
 https://github.com/quanpn90/NMTGMinor <br/>
-The SVCCA calculation is derived from https://github.com/nlp-dke/svcca
+The SVCCA calculation is derived from https://github.com/nlp-dke/svcca <br/><br/>
+Powered by Mediaan.com
 </em> <br/><br/>
 
 Speech Translation (ST) is the task of translating speech audio in a source language into text in a target language. This repository implements and experiments on 3 different approaches for ST:

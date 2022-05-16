@@ -26,3 +26,16 @@ High-level instruction to use the repo:
 	- `modality_similarity_svcca.sh`, `modality_similarity_classifier.sh` measure text-audio similarity in representation
 	
 See `notebooks/Repo_Instruction.ipynb` for more details.
+
+## Citation
+```
+@INPROCEEDINGS{9746815,
+  author={Dinh, Tu Anh and Liu, Danni and Niehues, Jan},
+  booktitle={ICASSP 2022 - 2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
+  title={Tackling Data Scarcity in Speech Translation Using Zero-Shot Multilingual Machine Translation Techniques}, 
+  year={2022},
+  volume={},
+  number={},
+  pages={6222-6226},
+  doi={10.1109/ICASSP43922.2022.9746815}}
+```
